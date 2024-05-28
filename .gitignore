@@ -1,0 +1,9 @@
+node_modules/**/*
+dev/dev.config.json
+.DS_Store
+*encrypted
+*decrypted
+dev/**/*
+dev/*
+dev
+dist

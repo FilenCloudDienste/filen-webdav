@@ -1,0 +1,10 @@
+node_modules/**/*
+src/test/**/*
+dev/**/*
+docs/**/*
+.github/**/*
+.vscode/**/*
+dev/*
+dev
+bin
+src

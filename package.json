@@ -1,0 +1,58 @@
+{
+	"name": "@filen/webdav",
+	"version": "0.1.1",
+	"description": "Filen WebDAV",
+	"main": "dist/index.js",
+	"types": "dist/index.d.ts",
+	"private": false,
+	"scripts": {
+		"test": "jest --forceExit ./__tests__",
+		"lint": "eslint src/**/* --ext .js,.jsx,.ts,.tsx",
+		"emitTypes": "tsc --emitDeclarationOnly",
+		"tsc": "tsc --build",
+		"clear": "rimraf ./dist",
+		"build": "npm run clear && npm run lint && npm run tsc",
+		"dev": "tsx ./dev/index.ts",
+		"yalc": "npm run build && yalc push"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/FilenCloudDienste/filen-webdav.git"
+	},
+	"keywords": [
+		"filen"
+	],
+	"engines": {
+		"node": ">=18"
+	},
+	"author": "Filen",
+	"license": "AGPLv3",
+	"bugs": {
+		"url": "https://github.com/FilenCloudDienste/filen-webdav/issues"
+	},
+	"homepage": "https://filen.io",
+	"devDependencies": {
+		"@jest/globals": "^29.7.0",
+		"@types/fs-extra": "^11.0.4",
+		"@types/lodash": "^4.14.202",
+		"@types/mime-types": "^2.1.4",
+		"@types/uuid": "^9.0.8",
+		"@typescript-eslint/eslint-plugin": "^6.20.0",
+		"@typescript-eslint/parser": "^6.20.0",
+		"cross-env": "^7.0.3",
+		"eslint": "^8.56.0",
+		"jest": "^29.7.0",
+		"rimraf": "^5.0.5",
+		"ts-node": "^10.9.2",
+		"tsx": "^4.11.0",
+		"typescript": "^5.3.3"
+	},
+	"dependencies": {
+		"@filen/sdk": "^0.1.91",
+		"@filen/webdav-server": "^1.0.0",
+		"fs-extra": "^11.2.0",
+		"lodash": "^4.17.21",
+		"mime-types": "^2.1.35",
+		"uuid": "^9.0.1"
+	}
+}
