@@ -26,6 +26,8 @@ npm install @filen/webdav@latest
 2. Initialize the server
 
 ```typescript
+import WebDAVServer from "@filen/webdav"
+
 const hostname = "127.0.0.1"
 const port = 1901
 const server = new WebDAVServer({
@@ -39,7 +41,7 @@ const server = new WebDAVServer({
 	],
 	hostname,
 	port,
-	sdkConfig: /* @filen/sdk config */
+	sdkConfig: config /* @filen/sdk config object */
 })
 
 server
