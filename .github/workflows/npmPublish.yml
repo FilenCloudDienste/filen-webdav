@@ -30,7 +30,11 @@ jobs:
               run: npm install --package-lock-only && npm ci
             - name: Build
               run: npm run build
+            - name: Configure npm for publishing
+              run: echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_PUBLISH_TOKEN }}" > ~/.npmrc
             - name: Publish
-              run: npm publish --provenance --access public
+              run: npm publish --access public
               env:
                   NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
+            - name: Cleanup
+              run: rm -rf ~/.npmrc
