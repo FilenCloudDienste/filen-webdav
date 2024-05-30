@@ -1,9 +1,8 @@
 name: Publish to npm
 
 on:
-    push:
-        branches:
-            - main # Change this to your default branch
+    release:
+        types: [published]
 
 # Allow one concurrent deployment
 concurrency:
