@@ -1,5 +1,6 @@
 import * as WebDAV from "@filen/webdav-server"
 import type FileSystem from ".."
+import { Semaphore } from "../../semaphore"
 
 export class Delete {
 	private readonly fileSystem: FileSystem
@@ -9,25 +10,35 @@ export class Delete {
 	}
 
 	private async execute(path: WebDAV.Path): Promise<void> {
-		if (this.fileSystem.virtualFiles[path.toString()]) {
-			delete this.fileSystem.virtualFiles[path.toString()]
-
-			return
+		if (!this.fileSystem.rwMutex[path.toString()]) {
+			this.fileSystem.rwMutex[path.toString()] = new Semaphore(1)
 		}
 
+		await this.fileSystem.rwMutex[path.toString()]!.acquire()
+
 		try {
-			await this.fileSystem.sdk.fs().stat({ path: path.toString() })
-			await this.fileSystem.sdk.fs().unlink({ path: path.toString(), permanent: true })
-		} catch (e) {
-			console.error(e) // TODO: Proper debugger
+			if (this.fileSystem.virtualFiles[path.toString()]) {
+				delete this.fileSystem.virtualFiles[path.toString()]
 
-			const err = e as unknown as { code?: string }
-
-			if (err.code === "ENOENT") {
-				throw WebDAV.Errors.PropertyNotFound
+				return
 			}
 
-			throw WebDAV.Errors.InvalidOperation
+			try {
+				await this.fileSystem.sdk.fs().stat({ path: path.toString() })
+				await this.fileSystem.sdk.fs().unlink({ path: path.toString(), permanent: true })
+			} catch (e) {
+				console.error(e) // TODO: Proper debugger
+
+				const err = e as unknown as { code?: string }
+
+				if (err.code === "ENOENT") {
+					throw WebDAV.Errors.PropertyNotFound
+				}
+
+				throw WebDAV.Errors.InvalidOperation
+			}
+		} finally {
+			this.fileSystem.rwMutex[path.toString()]!.release()
 		}
 	}
 

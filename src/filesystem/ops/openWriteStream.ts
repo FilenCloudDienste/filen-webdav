@@ -5,6 +5,7 @@ import { Writable } from "stream"
 import { v4 as uuidv4 } from "uuid"
 import { ChunkedUploadWriter } from "../streams"
 import { FSItem, BUFFER_SIZE } from "@filen/sdk"
+import { Semaphore } from "../../semaphore"
 
 export class OpenWriteStream {
 	private readonly fileSystem: FileSystem
@@ -14,6 +15,23 @@ export class OpenWriteStream {
 	}
 
 	private async execute(path: WebDAV.Path): Promise<Writable> {
+		if (!this.fileSystem.rwMutex[path.toString()]) {
+			this.fileSystem.rwMutex[path.toString()] = new Semaphore(1)
+		}
+
+		await this.fileSystem.rwMutex[path.toString()]!.acquire()
+
+		let didReleaseLock = false
+		const releaseLock = () => {
+			if (didReleaseLock) {
+				return
+			}
+
+			didReleaseLock = true
+
+			this.fileSystem.rwMutex[path.toString()]!.release()
+		}
+
 		try {
 			const parentPath = pathModule.dirname(path.toString())
 			const uuid = uuidv4()
@@ -44,13 +62,24 @@ export class OpenWriteStream {
 				})
 
 				delete this.fileSystem.virtualFiles[path.toString()]
+
+				releaseLock()
 			})
 
-			stream.once("error", console.error) // TODO: Proper debugger
+			stream.once("close", releaseLock)
+			stream.once("finish", releaseLock)
+
+			stream.once("error", err => {
+				console.error(err) // TODO: Proper debugger
+
+				releaseLock()
+			})
 
 			return stream
 		} catch (e) {
 			delete this.fileSystem.virtualFiles[path.toString()]
+
+			releaseLock()
 
 			console.error(e) // TODO: Proper debugger
 

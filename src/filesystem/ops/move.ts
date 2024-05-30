@@ -1,5 +1,6 @@
 import * as WebDAV from "@filen/webdav-server"
 import type FileSystem from ".."
+import { Semaphore } from "../../semaphore"
 
 export class Move {
 	private readonly fileSystem: FileSystem
@@ -9,28 +10,43 @@ export class Move {
 	}
 
 	private async execute(pathFrom: WebDAV.Path, pathTo: WebDAV.Path): Promise<boolean> {
-		if (this.fileSystem.virtualFiles[pathFrom.toString()]) {
-			this.fileSystem.virtualFiles[pathTo.toString()] = this.fileSystem.virtualFiles[pathFrom.toString()]!
-
-			delete this.fileSystem.virtualFiles[pathFrom.toString()]
-
-			return true
+		if (!this.fileSystem.rwMutex[pathFrom.toString()]) {
+			this.fileSystem.rwMutex[pathFrom.toString()] = new Semaphore(1)
 		}
 
+		if (!this.fileSystem.rwMutex[pathTo.toString()]) {
+			this.fileSystem.rwMutex[pathTo.toString()] = new Semaphore(1)
+		}
+
+		await Promise.all([this.fileSystem.rwMutex[pathFrom.toString()]!.acquire(), this.fileSystem.rwMutex[pathTo.toString()]!.acquire()])
+
 		try {
-			await this.fileSystem.sdk.fs().rename({ from: pathFrom.toString(), to: pathTo.toString() })
+			if (this.fileSystem.virtualFiles[pathFrom.toString()]) {
+				this.fileSystem.virtualFiles[pathTo.toString()] = this.fileSystem.virtualFiles[pathFrom.toString()]!
 
-			return true
-		} catch (e) {
-			console.error(e) // TODO: Proper debugger
+				delete this.fileSystem.virtualFiles[pathFrom.toString()]
 
-			const err = e as unknown as { code?: string }
-
-			if (err.code === "ENOENT") {
-				throw WebDAV.Errors.PropertyNotFound
+				return true
 			}
 
-			throw WebDAV.Errors.InvalidOperation
+			try {
+				await this.fileSystem.sdk.fs().rename({ from: pathFrom.toString(), to: pathTo.toString() })
+
+				return true
+			} catch (e) {
+				console.error(e) // TODO: Proper debugger
+
+				const err = e as unknown as { code?: string }
+
+				if (err.code === "ENOENT") {
+					throw WebDAV.Errors.PropertyNotFound
+				}
+
+				throw WebDAV.Errors.InvalidOperation
+			}
+		} finally {
+			this.fileSystem.rwMutex[pathFrom.toString()]!.release()
+			this.fileSystem.rwMutex[pathTo.toString()]!.release()
 		}
 	}
 

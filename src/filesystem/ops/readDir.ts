@@ -22,7 +22,7 @@ export class ReadDir {
 			}
 
 			for (const entry in this.fileSystem.virtualFiles) {
-				if (entry.startsWith(dirPath + "/") || entry === dirPath) {
+				if ((entry.startsWith(dirPath + "/") && !entry.endsWith("/")) || entry === dirPath) {
 					dir.push(pathModule.posix.basename(entry))
 				}
 			}
