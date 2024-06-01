@@ -1,5 +1,12 @@
 import * as WebDAV from "@filen/webdav-server"
 
+/**
+ * Resource
+ *
+ * @export
+ * @class Resource
+ * @typedef {Resource}
+ */
 export class Resource {
 	private readonly type: WebDAV.ResourceType
 	private readonly propertyManager: WebDAV.LocalPropertyManager
@@ -8,6 +15,13 @@ export class Resource {
 	private readonly lastModifiedDate: number
 	private readonly uid?: string
 
+	/**
+	 * Creates an instance of Resource.
+	 *
+	 * @constructor
+	 * @public
+	 * @param {Resource} data
+	 */
 	public constructor(data: Resource) {
 		this.type = data.type
 		this.propertyManager = new WebDAV.LocalPropertyManager(data.propertyManager)
