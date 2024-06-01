@@ -3,8 +3,7 @@ import type FileSystem from ".."
 import pathModule from "path"
 import { Writable } from "stream"
 import { v4 as uuidv4 } from "uuid"
-import { ChunkedUploadWriter } from "../streams"
-import { FSItem, BUFFER_SIZE } from "@filen/sdk"
+import { FSItem, BUFFER_SIZE, ChunkedUploadWriter } from "@filen/sdk"
 import { Semaphore } from "../../semaphore"
 
 export class OpenWriteStream {
