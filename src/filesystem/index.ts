@@ -104,7 +104,7 @@ export class FileSystem extends WebDAV.FileSystem {
 	 * @returns {WebDAV.Path}
 	 */
 	private _path(path: WebDAV.Path): WebDAV.Path {
-		if (this.rootPath.length === 0 || !this.rootPath.includes("/")) {
+		if (this.rootPath.length === 0 || !this.rootPath.includes("/") || !this.rootPath.startsWith("/")) {
 			return path
 		}
 
