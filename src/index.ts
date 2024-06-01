@@ -35,8 +35,8 @@ export class WebDAVServer {
 	 * 		hostname?: string
 	 * 		port?: number
 	 * 		sdkConfig: FilenSDKConfig
-	 * 		tmpDir?: string,
-	 * 		authType?: "basic" | "digest",
+	 * 		tmpDir?: string
+	 * 		authType?: "basic" | "digest"
 	 * 		rootPath?: string
 	 * 	}} param0
 	 * @param {{}} param0.users
@@ -44,7 +44,7 @@ export class WebDAVServer {
 	 * @param {number} param0.port
 	 * @param {FilenSDKConfig} param0.sdkConfig
 	 * @param {string} param0.tmpDir
-	 * @param {("basic" | "digest")} [param0.authType="digest"]
+	 * @param {("basic" | "digest")} [param0.authType="basic"]
 	 * @param {string} param0.rootPath
 	 */
 	public constructor({
@@ -53,7 +53,7 @@ export class WebDAVServer {
 		port,
 		sdkConfig,
 		tmpDir,
-		authType = "digest",
+		authType = "basic",
 		rootPath
 	}: {
 		users: WebDAVUser[]
