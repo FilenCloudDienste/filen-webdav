@@ -41,6 +41,8 @@ const server = new WebDAVServer({
 	],
 	hostname,
 	port,
+	rootPath: "/",
+	authType: "digest",
 	sdkConfig: config /* @filen/sdk config object */
 })
 
