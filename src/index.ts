@@ -42,8 +42,8 @@ export type AuthMode = "basic" | "digest"
  * WebDAVServer
  *
  * @export
- * @class Server
- * @typedef {Server}
+ * @class WebDAVServer
+ * @typedef {WebDAVServer}
  */
 export class WebDAVServer {
 	public readonly server: Express
@@ -96,7 +96,7 @@ export class WebDAVServer {
 			hostname,
 			port
 		}
-		this.proxyMode = user ? false : true
+		this.proxyMode = typeof user === "undefined"
 		this.server = express()
 
 		if (this.proxyMode && this.authMode === "digest") {
@@ -110,7 +110,11 @@ export class WebDAVServer {
 			this.users[user.username] = {
 				username: user.username,
 				password: user.password,
-				sdk: new FilenSDK(user.sdkConfig)
+				sdk: new FilenSDK({
+					...user.sdkConfig,
+					connectToSocket: true,
+					metadataCache: true
+				})
 			}
 
 			if (this.defaultUsername.length === 0 || this.defaultPassword.length === 0) {

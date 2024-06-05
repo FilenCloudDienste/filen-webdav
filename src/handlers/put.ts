@@ -207,8 +207,8 @@ export class Put {
 				return
 			}
 
-			sdk.fs()._removeItem({ path })
-			sdk.fs()._addItem({
+			await sdk.fs()._removeItem({ path })
+			await sdk.fs()._addItem({
 				path,
 				item: {
 					type: "file",

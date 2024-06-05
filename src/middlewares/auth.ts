@@ -125,7 +125,10 @@ export class Auth {
 			}
 
 			this.server.users[username] = {
-				sdk: new FilenSDK(),
+				sdk: new FilenSDK({
+					connectToSocket: true,
+					metadataCache: true
+				}),
 				username,
 				password: parsedPassword
 			}
@@ -272,9 +275,7 @@ export class Auth {
 				.then(() => {
 					next()
 				})
-				.catch(err => {
-					console.error(err)
-
+				.catch(() => {
 					res.set("WWW-Authenticate", this.authHeader())
 					res.status(401).end("Unauthorized")
 				})
@@ -283,9 +284,7 @@ export class Auth {
 				.then(() => {
 					next()
 				})
-				.catch(err => {
-					console.error(err)
-
+				.catch(() => {
 					res.set("WWW-Authenticate", this.authHeader())
 					res.status(401).end("Unauthorized")
 				})
