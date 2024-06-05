@@ -1,7 +1,6 @@
 import { type Request, type Response } from "express"
 import type Server from ".."
 import Responses from "../responses"
-import Mutex from "../mutex"
 
 /**
  * Delete
@@ -32,7 +31,7 @@ export class Delete {
 	 * @returns {Promise<void>}
 	 */
 	public async handle(req: Request, res: Response): Promise<void> {
-		await Mutex.acquireReadWrite(req.url)
+		await this.server.getRWMutexForUser(req.url, req.username).acquire()
 
 		try {
 			const resource = await this.server.urlToResource(req)
@@ -66,7 +65,7 @@ export class Delete {
 
 			await Responses.ok(res)
 		} finally {
-			Mutex.releaseReadWrite(req.url)
+			this.server.getRWMutexForUser(req.url, req.username).release()
 		}
 	}
 }

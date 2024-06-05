@@ -35,19 +35,12 @@ export class WebDAVError extends Error {
  * @param {*} err
  * @param {*} req
  * @param {*} res
- * @param {*} next
  * @returns {void}
  */
-export const Errors: ErrorRequestHandler = (err, req, res, next): void => {
-	if (res.headersSent) {
-		next(err)
-
-		return
-	}
-
+export const Errors: ErrorRequestHandler = (err, req, res): void => {
 	res.status(err instanceof WebDAVError ? err.code : 500)
-		.set("Content-Length", "0")
-		.end("Internal server error")
+	res.set("Content-Length", "0")
+	res.end("Internal server error")
 }
 
 export default Errors

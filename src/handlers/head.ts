@@ -2,7 +2,6 @@ import { type Request, type Response } from "express"
 import type Server from ".."
 import mimeTypes from "mime-types"
 import Responses from "../responses"
-import Mutex from "../mutex"
 import { parseByteRange } from "../utils"
 
 /**
@@ -34,7 +33,7 @@ export class Head {
 	 * @returns {Promise<void>}
 	 */
 	public async handle(req: Request, res: Response): Promise<void> {
-		await Mutex.acquireReadWrite(req.url)
+		await this.server.getRWMutexForUser(req.url, req.username).acquire()
 
 		try {
 			const resource = await this.server.urlToResource(req)
@@ -81,7 +80,7 @@ export class Head {
 			res.set("Accept-Ranges", "bytes")
 			res.end()
 		} finally {
-			Mutex.releaseReadWrite(req.url)
+			this.server.getRWMutexForUser(req.url, req.username).release()
 		}
 	}
 }

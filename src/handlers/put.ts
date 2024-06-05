@@ -7,7 +7,6 @@ import { v4 as uuidv4 } from "uuid"
 import mimeTypes from "mime-types"
 import { removeLastSlash } from "../utils"
 import Responses from "../responses"
-import Mutex from "../mutex"
 
 /**
  * Put
@@ -103,12 +102,11 @@ export class Put {
 	 * @returns {Promise<void>}
 	 */
 	public async handle(req: Request, res: Response, next: NextFunction): Promise<void> {
-		const path = removeLastSlash(decodeURI(req.url))
-		const parentPath = pathModule.posix.dirname(path)
-
-		await Mutex.acquireReadWrite(req.url)
+		await this.server.getRWMutexForUser(req.url, req.username).acquire()
 
 		try {
+			const path = removeLastSlash(decodeURI(req.url))
+			const parentPath = pathModule.posix.dirname(path)
 			const name = pathModule.posix.basename(path)
 			const parentResource = await this.server.pathToResource(req, parentPath)
 
@@ -233,7 +231,7 @@ export class Put {
 
 			await Responses.created(res)
 		} finally {
-			Mutex.releaseReadWrite(req.url)
+			this.server.getRWMutexForUser(req.url, req.username).release()
 		}
 	}
 }

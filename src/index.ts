@@ -17,6 +17,7 @@ import Auth from "./middlewares/auth"
 import { removeLastSlash } from "./utils"
 import Lock from "./handlers/lock"
 import Unlock from "./handlers/unlock"
+import { Semaphore, type ISemaphore } from "./semaphore"
 
 export type ServerConfig = {
 	hostname: string
@@ -53,6 +54,7 @@ export class WebDAVServer {
 	public readonly defaultUsername: string = ""
 	public readonly defaultPassword: string = ""
 	public readonly authMode: AuthMode
+	public readonly rwMutex: Record<string, Record<string, ISemaphore>> = {}
 
 	/**
 	 * Creates an instance of WebDAVServer.
@@ -121,10 +123,14 @@ export class WebDAVServer {
 	 * Return all virtual file handles for the passed username.
 	 *
 	 * @public
-	 * @param {string} username
+	 * @param {?(string)} [username]
 	 * @returns {Record<string, Resource>}
 	 */
-	public getVirtualFilesForUser(username: string): Record<string, Resource> {
+	public getVirtualFilesForUser(username?: string): Record<string, Resource> {
+		if (!username) {
+			return {}
+		}
+
 		if (this.virtualFiles[username]) {
 			return this.virtualFiles[username]!
 		}
@@ -138,10 +144,10 @@ export class WebDAVServer {
 	 * Return the FilenSDK instance for the passed username.
 	 *
 	 * @public
-	 * @param {?(string | null)} [username]
+	 * @param {?(string)} [username]
 	 * @returns {(FilenSDK | null)}
 	 */
-	public getSDKForUser(username?: string | null): FilenSDK | null {
+	public getSDKForUser(username?: string): FilenSDK | null {
 		if (!username) {
 			return null
 		}
@@ -151,6 +157,34 @@ export class WebDAVServer {
 		}
 
 		return null
+	}
+
+	/**
+	 * Get the RW mutex for the given username and path.
+	 *
+	 * @public
+	 * @param {string} path
+	 * @param {?string} [username]
+	 * @returns {ISemaphore}
+	 */
+	public getRWMutexForUser(path: string, username?: string): ISemaphore {
+		path = removeLastSlash(decodeURI(path))
+
+		if (!username) {
+			return new Semaphore(1)
+		}
+
+		if (!this.rwMutex[username]) {
+			this.rwMutex[username] = {}
+		}
+
+		if (this.rwMutex[username]![path]) {
+			return this.rwMutex[username]![path]!
+		}
+
+		this.rwMutex[username]![path]! = new Semaphore(1)
+
+		return this.rwMutex[username]![path]!
 	}
 
 	/**

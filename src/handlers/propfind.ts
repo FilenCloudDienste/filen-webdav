@@ -3,7 +3,6 @@ import type Server from ".."
 import Responses from "../responses"
 import pathModule from "path"
 import { promiseAllChunked } from "../utils"
-import Mutex from "../mutex"
 
 /**
  * Propfind
@@ -34,7 +33,7 @@ export class Propfind {
 	 * @returns {Promise<void>}
 	 */
 	public async handle(req: Request, res: Response): Promise<void> {
-		await Mutex.acquireReadWrite(req.url)
+		await this.server.getRWMutexForUser(req.url, req.username).acquire()
 
 		try {
 			const depth = req.header("depth") ?? "1"
@@ -83,7 +82,7 @@ export class Propfind {
 
 			await Responses.propfind(res, [resource])
 		} finally {
-			Mutex.releaseReadWrite(req.url)
+			this.server.getRWMutexForUser(req.url, req.username).release()
 		}
 	}
 }

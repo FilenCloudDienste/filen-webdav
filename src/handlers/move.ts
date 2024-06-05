@@ -3,7 +3,6 @@ import type Server from ".."
 import Responses from "../responses"
 import { removeLastSlash } from "../utils"
 import pathModule from "path"
-import Mutex from "../mutex"
 
 /**
  * Move
@@ -34,7 +33,7 @@ export class Move {
 	 * @returns {Promise<void>}
 	 */
 	public async handle(req: Request, res: Response): Promise<void> {
-		await Mutex.acquireReadWrite(req.url)
+		await this.server.getRWMutexForUser(req.url, req.username).acquire()
 
 		try {
 			const destinationHeader = req.headers["destination"]
@@ -157,7 +156,7 @@ export class Move {
 
 			await Responses.created(res)
 		} finally {
-			Mutex.releaseReadWrite(req.url)
+			this.server.getRWMutexForUser(req.url, req.username).release()
 		}
 	}
 }

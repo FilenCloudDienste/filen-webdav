@@ -1,7 +1,6 @@
 import { type Request, type Response } from "express"
 import type Server from ".."
 import pathModule from "path"
-import Mutex from "../mutex"
 import Responses from "../responses"
 
 /**
@@ -33,7 +32,7 @@ export class Mkcol {
 	 * @returns {Promise<void>}
 	 */
 	public async handle(req: Request, res: Response): Promise<void> {
-		await Mutex.acquireReadWrite(req.url)
+		await this.server.getRWMutexForUser(req.url, req.username).acquire()
 
 		try {
 			const path = decodeURI(req.url.endsWith("/") ? req.url.slice(0, req.url.length - 1) : req.url)
@@ -67,7 +66,7 @@ export class Mkcol {
 
 			await Responses.created(res)
 		} finally {
-			Mutex.releaseReadWrite(req.url)
+			this.server.getRWMutexForUser(req.url, req.username).release()
 		}
 	}
 }

@@ -4,7 +4,7 @@ import mimeTypes from "mime-types"
 import { Readable } from "stream"
 import { type ReadableStream as ReadableStreamWebType } from "stream/web"
 import Responses from "../responses"
-import Mutex from "../mutex"
+import { parseByteRange } from "../utils"
 
 /**
  * Get
@@ -26,37 +26,6 @@ export class Get {
 	}
 
 	/**
-	 * Parse the requested byte range.
-	 *
-	 * @private
-	 * @param {string} range
-	 * @param {number} totalLength
-	 * @returns {({ start: number; end: number } | null)}
-	 */
-	private parseRange(range: string, totalLength: number): { start: number; end: number } | null {
-		const [unit, rangeValue] = range.split("=")
-
-		if (unit !== "bytes" || !rangeValue) {
-			return null
-		}
-
-		const [startStr, endStr] = rangeValue.split("-")
-
-		if (!startStr) {
-			return null
-		}
-
-		const start = parseInt(startStr, 10)
-		const end = endStr ? parseInt(endStr, 10) : totalLength - 1
-
-		if (isNaN(start) || isNaN(end) || start < 0 || end >= totalLength || start > end) {
-			return null
-		}
-
-		return { start, end }
-	}
-
-	/**
 	 * Download the requested file as a readStream.
 	 *
 	 * @public
@@ -67,7 +36,7 @@ export class Get {
 	 * @returns {Promise<void>}
 	 */
 	public async handle(req: Request, res: Response, next: NextFunction): Promise<void> {
-		await Mutex.acquireReadWrite(req.url)
+		await this.server.getRWMutexForUser(req.url, req.username).acquire()
 
 		try {
 			const resource = await this.server.urlToResource(req)
@@ -103,7 +72,7 @@ export class Get {
 			let end = totalLength - 1
 
 			if (range) {
-				const parsedRange = this.parseRange(range, totalLength)
+				const parsedRange = parseByteRange(range, totalLength)
 
 				if (!parsedRange) {
 					await Responses.badRequest(res)
@@ -143,7 +112,7 @@ export class Get {
 
 			nodeStream.pipe(res)
 		} finally {
-			Mutex.releaseReadWrite(req.url)
+			this.server.getRWMutexForUser(req.url, req.username).release()
 		}
 	}
 }

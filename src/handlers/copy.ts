@@ -31,15 +31,21 @@ export class Copy {
 	 * @returns {Promise<void>}
 	 */
 	public async handle(req: Request, res: Response): Promise<void> {
-		const resource = await this.server.urlToResource(req)
+		await this.server.getRWMutexForUser(req.url, req.username).acquire()
 
-		if (!resource) {
-			await Responses.notFound(res, req.url)
+		try {
+			const resource = await this.server.urlToResource(req)
 
-			return
+			if (!resource) {
+				await Responses.notFound(res, req.url)
+
+				return
+			}
+
+			await Responses.notImplemented(res)
+		} finally {
+			this.server.getRWMutexForUser(req.url, req.username).release()
 		}
-
-		await Responses.notImplemented(res)
 	}
 }
 
