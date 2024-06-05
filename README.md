@@ -3,7 +3,7 @@
   <h3 align="center">Filen WebDAV</h3>
 
   <p align="center">
-    A package to start a WebDAV server for a Filen account.
+    A package to start a WebDAV server for a single or multiple Filen accounts.
     <br/>
     <br/>
   </p>
@@ -23,36 +23,66 @@ The package is still a work in progress. DO NOT USE IT IN PRODUCTION YET. Class 
 npm install @filen/webdav@latest
 ```
 
-2. Initialize the server
+2. Initialize the server (standalone mode, single user)
 
 ```typescript
+// Standalone mode, single user
+
 import WebDAVServer from "@filen/webdav"
 
-const hostname = "127.0.0.1"
-const port = 1901
+const hostname = "0.0.0.0"
+const port = 1900
 const server = new WebDAVServer({
-	users: [
-		{
-			name: "admin",
-			password: "admin",
-			isAdmin: true,
-			rights: ["all"]
-		}
-	],
 	hostname,
 	port,
-	rootPath: "/",
-	authType: "digest",
-	sdkConfig: config /* @filen/sdk config object */
+	user: {
+		username: "admin",
+		password: "admin",
+		sdkConfig
+	},
+	authMode: "basic" | "digest"
 })
 
 server
-	.initialize()
+	.start()
 	.then(() => console.log(`WebDAV server started on http://${hostname}:${port}`))
 	.catch(console.error)
 ```
 
-3. Access the server
+3. Initialize the server (proxy mode)
+
+<small>When in proxy mode, the server acts as a local WebDAV gateway for multiple Filen accounts. It accepts Filen login credentials formatted as follows (without the double backticks):</small>
+
+```
+Username: "youremail@example.com"
+Password: "password=yoursecretpassword&twoFactorAuthentication=<RECOVERY_CODE_OR_6_DIGIT_OTP_CODE>"
+
+// You can also leave out the "&twoFactorAuthentication=" part if your account is not protected by 2FA.
+```
+
+<small>Useful for everyone who wants to host a single WebDAV server for multiple accounts/users. Everything still runs client side, keeping the zero-knowledge end-to-end encryption intact.</small>
+
+```typescript
+// Proxy mode, multi user
+
+import WebDAVServer from "@filen/webdav"
+
+const hostname = "0.0.0.0"
+const port = 1900
+const server = new WebDAVServer({
+	hostname,
+	port,
+	// Omit the user object
+	authMode: "basic" // Only basic auth is supported in proxy mode
+})
+
+server
+	.start()
+	.then(() => console.log(`WebDAV server started on http://${hostname}:${port}`))
+	.catch(console.error)
+```
+
+4. Access the server
 
 ```sh
 // MacOS
