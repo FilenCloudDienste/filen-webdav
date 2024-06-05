@@ -216,6 +216,17 @@ export class Responses {
 			})
 		})
 	}
+
+	public static async preconditionFailed(res: Response): Promise<void> {
+		res.set("Content-Length", "0")
+		res.status(412)
+
+		await new Promise<void>(resolve => {
+			res.end(() => {
+				resolve()
+			})
+		})
+	}
 }
 
 export default Responses

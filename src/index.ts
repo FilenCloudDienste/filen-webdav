@@ -274,7 +274,7 @@ export class WebDAVServer {
 		this.server.use(asyncHandler(new Auth(this).handle))
 
 		this.server.use((_, res, next) => {
-			res.set("Allow", "OPTIONS, GET, HEAD, POST, PUT, DELETE, PROPFIND, PROPPATCH, MKCOL, COPY, MOVE")
+			res.set("Allow", "OPTIONS, GET, HEAD, PUT, DELETE, PROPFIND, PROPPATCH, MKCOL, COPY, MOVE")
 			res.set("DAV", "1, 2")
 			res.set("Access-Control-Allow-Origin", "*")
 			res.set("Access-Control-Allow-Credentials", "true")

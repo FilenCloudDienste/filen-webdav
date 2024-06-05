@@ -1,6 +1,8 @@
 import { type Request, type Response } from "express"
 import type Server from ".."
 import Responses from "../responses"
+import { removeLastSlash } from "../utils"
+import pathModule from "path"
 
 /**
  * Copy
@@ -22,7 +24,7 @@ export class Copy {
 	}
 
 	/**
-	 * Copy a file or a directory to the destination provided in the header.
+	 * Copy a resource to the destination defined in the destination header. Overwrite if needed.
 	 *
 	 * @public
 	 * @async
@@ -34,7 +36,47 @@ export class Copy {
 		await this.server.getRWMutexForUser(req.url, req.username).acquire()
 
 		try {
-			const resource = await this.server.urlToResource(req)
+			const destinationHeader = req.headers["destination"]
+			const overwrite = req.headers["overwrite"] === "T"
+
+			if (
+				typeof destinationHeader !== "string" ||
+				!destinationHeader.includes(req.hostname) ||
+				!destinationHeader.includes(req.protocol)
+			) {
+				await Responses.badRequest(res)
+
+				return
+			}
+
+			let url: URL | null
+
+			try {
+				url = new URL(destinationHeader)
+			} catch {
+				await Responses.badRequest(res)
+
+				return
+			}
+
+			if (!url) {
+				await Responses.badRequest(res)
+
+				return
+			}
+
+			const destination = decodeURI(url.pathname)
+
+			if (destination.startsWith("..") || destination.startsWith("./") || destination.startsWith("../")) {
+				await Responses.forbidden(res)
+
+				return
+			}
+
+			const [resource, destinationResource] = await Promise.all([
+				this.server.urlToResource(req),
+				this.server.pathToResource(req, removeLastSlash(destination))
+			])
 
 			if (!resource) {
 				await Responses.notFound(res, req.url)
@@ -42,7 +84,79 @@ export class Copy {
 				return
 			}
 
-			await Responses.notImplemented(res)
+			if (resource.path === destination || destination.startsWith(resource.path)) {
+				await Responses.forbidden(res)
+
+				return
+			}
+
+			if (!overwrite && destinationResource) {
+				await Responses.alreadyExists(res)
+
+				return
+			}
+
+			const sdk = this.server.getSDKForUser(req.username)
+
+			if (!sdk) {
+				await Responses.notAuthorized(res)
+
+				return
+			}
+
+			if (resource.isVirtual) {
+				if (overwrite && destinationResource && !destinationResource.isVirtual) {
+					await sdk.fs().unlink({
+						path: destinationResource.path,
+						permanent: true
+					})
+
+					this.server.getVirtualFilesForUser(req.username)[destination] = {
+						...resource,
+						url: destination,
+						path: destination,
+						name: pathModule.posix.basename(destination)
+					}
+
+					await Responses.noContent(res)
+
+					return
+				}
+
+				this.server.getVirtualFilesForUser(req.username)[destination] = {
+					...resource,
+					url: destination,
+					path: destination,
+					name: pathModule.posix.basename(destination)
+				}
+
+				await Responses.created(res)
+
+				return
+			}
+
+			if (overwrite && destinationResource) {
+				await sdk.fs().unlink({
+					path: destinationResource.path,
+					permanent: true
+				})
+
+				await sdk.fs().cp({
+					from: resource.path,
+					to: destination
+				})
+
+				await Responses.noContent(res)
+
+				return
+			}
+
+			await sdk.fs().cp({
+				from: resource.path,
+				to: destination
+			})
+
+			await Responses.created(res)
 		} finally {
 			this.server.getRWMutexForUser(req.url, req.username).release()
 		}

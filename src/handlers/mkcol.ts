@@ -37,19 +37,11 @@ export class Mkcol {
 		try {
 			const path = decodeURI(req.url.endsWith("/") ? req.url.slice(0, req.url.length - 1) : req.url)
 			const parentPath = pathModule.posix.dirname(path)
-			const [parentResource, thisResource] = await Promise.all([
-				this.server.pathToResource(req, parentPath),
-				this.server.pathToResource(req, path)
-			])
+			const parentResource = await this.server.pathToResource(req, parentPath)
 
+			// The SDK handles checking if a directory with the same name and parent already exists
 			if (!parentResource || parentResource.type !== "directory") {
-				await Responses.forbidden(res)
-
-				return
-			}
-
-			if (thisResource && thisResource.type === "directory") {
-				await Responses.forbidden(res)
+				await Responses.preconditionFailed(res)
 
 				return
 			}

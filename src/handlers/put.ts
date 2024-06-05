@@ -110,8 +110,9 @@ export class Put {
 			const name = pathModule.posix.basename(path)
 			const parentResource = await this.server.pathToResource(req, parentPath)
 
+			// The SDK handles checking if a file with the same name and parent already exists
 			if (!parentResource || parentResource.type !== "directory") {
-				await Responses.notFound(res, req.url)
+				await Responses.preconditionFailed(res)
 
 				return
 			}

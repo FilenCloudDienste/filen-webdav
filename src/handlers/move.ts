@@ -67,6 +67,12 @@ export class Move {
 
 			const destination = decodeURI(url.pathname)
 
+			if (destination.startsWith("..") || destination.startsWith("./") || destination.startsWith("../")) {
+				await Responses.forbidden(res)
+
+				return
+			}
+
 			const [resource, destinationResource] = await Promise.all([
 				this.server.urlToResource(req),
 				this.server.pathToResource(req, removeLastSlash(destination))
@@ -99,13 +105,11 @@ export class Move {
 			}
 
 			if (resource.isVirtual) {
-				if (overwrite && destinationResource) {
-					if (!destinationResource.isVirtual) {
-						await sdk.fs().unlink({
-							path: destinationResource.path,
-							permanent: true
-						})
-					}
+				if (overwrite && destinationResource && !destinationResource.isVirtual) {
+					await sdk.fs().unlink({
+						path: destinationResource.path,
+						permanent: true
+					})
 
 					this.server.getVirtualFilesForUser(req.username)[destination] = {
 						...resource,
@@ -117,18 +121,20 @@ export class Move {
 					delete this.server.getVirtualFilesForUser(req.username)[resource.path]
 
 					await Responses.noContent(res)
-				} else {
-					this.server.getVirtualFilesForUser(req.username)[destination] = {
-						...resource,
-						url: destination,
-						path: destination,
-						name: pathModule.posix.basename(destination)
-					}
 
-					delete this.server.getVirtualFilesForUser(req.username)[resource.path]
-
-					await Responses.created(res)
+					return
 				}
+
+				this.server.getVirtualFilesForUser(req.username)[destination] = {
+					...resource,
+					url: destination,
+					path: destination,
+					name: pathModule.posix.basename(destination)
+				}
+
+				delete this.server.getVirtualFilesForUser(req.username)[resource.path]
+
+				await Responses.created(res)
 
 				return
 			}

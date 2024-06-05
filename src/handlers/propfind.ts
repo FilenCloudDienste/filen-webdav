@@ -80,7 +80,12 @@ export class Propfind {
 				return
 			}
 
-			await Responses.propfind(res, [resource])
+			await Responses.propfind(res, [
+				{
+					...resource,
+					url: `${resource.url}${resource.type === "directory" && !resource.url.endsWith("/") ? "/" : ""}`
+				}
+			])
 		} finally {
 			this.server.getRWMutexForUser(req.url, req.username).release()
 		}
