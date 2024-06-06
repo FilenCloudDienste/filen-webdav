@@ -18,6 +18,8 @@ import { removeLastSlash } from "./utils"
 import Lock from "./handlers/lock"
 import Unlock from "./handlers/unlock"
 import { Semaphore, type ISemaphore } from "./semaphore"
+import https from "https"
+import Certs from "./certs"
 
 export type ServerConfig = {
 	hostname: string
@@ -55,6 +57,7 @@ export class WebDAVServer {
 	public readonly defaultPassword: string = ""
 	public readonly authMode: AuthMode
 	public readonly rwMutex: Record<string, Record<string, ISemaphore>> = {}
+	public readonly enableHTTPS: boolean
 
 	/**
 	 * Creates an instance of WebDAVServer.
@@ -62,35 +65,40 @@ export class WebDAVServer {
 	 * @constructor
 	 * @public
 	 * @param {{
-	 * 		hostname: string
-	 * 		port: number
+	 * 		hostname?: string
+	 * 		port?: number
 	 * 		authMode?: "basic" | "digest"
+	 * 		https?: boolean
 	 * 		user?: {
 	 * 			sdkConfig: FilenSDKConfig
 	 * 			username: string
 	 * 			password: string
 	 * 		}
 	 * 	}} param0
-	 * @param {string} param0.hostname
-	 * @param {number} param0.port
+	 * @param {string} [param0.hostname="127.0.0.1"]
+	 * @param {number} [param0.port=1900]
 	 * @param {{ sdkConfig: FilenSDKConfig; username: string; password: string; }} param0.user
 	 * @param {("basic" | "digest")} [param0.authMode="basic"]
+	 * @param {boolean} [param0.https=false]
 	 */
 	public constructor({
-		hostname,
-		port,
+		hostname = "127.0.0.1",
+		port = 1900,
 		user,
-		authMode = "basic"
+		authMode = "basic",
+		https = false
 	}: {
-		hostname: string
-		port: number
+		hostname?: string
+		port?: number
 		authMode?: "basic" | "digest"
+		https?: boolean
 		user?: {
 			sdkConfig: FilenSDKConfig
 			username: string
 			password: string
 		}
 	}) {
+		this.enableHTTPS = https
 		this.authMode = authMode
 		this.serverConfig = {
 			hostname,
@@ -314,10 +322,28 @@ export class WebDAVServer {
 
 		this.server.use(Errors)
 
-		await new Promise<void>(resolve => {
-			this.server.listen(this.serverConfig.port, this.serverConfig.hostname, () => {
-				resolve()
-			})
+		await new Promise<void>((resolve, reject) => {
+			if (this.enableHTTPS) {
+				Certs.get()
+					.then(certs => {
+						https
+							.createServer(
+								{
+									cert: certs.cert,
+									key: certs.privateKey
+								},
+								this.server
+							)
+							.listen(this.serverConfig.port, this.serverConfig.hostname, () => {
+								resolve()
+							})
+					})
+					.catch(reject)
+			} else {
+				this.server.listen(this.serverConfig.port, this.serverConfig.hostname, () => {
+					resolve()
+				})
+			}
 		})
 	}
 }

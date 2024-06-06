@@ -1,3 +1,7 @@
+import pathModule from "path"
+import fs from "fs-extra"
+import os from "os"
+
 /**
  * Chunk large Promise.all executions.
  * @date 2/14/2024 - 11:59:34 PM
@@ -54,4 +58,44 @@ export function parseByteRange(range: string, totalLength: number): { start: num
 	}
 
 	return { start, end }
+}
+
+/**
+ * Return the platforms config path.
+ *
+ * @export
+ * @returns {string}
+ */
+export function platformConfigPath(): string {
+	// Ref: https://github.com/FilenCloudDienste/filen-cli/blob/main/src/util.ts
+
+	let configPath = ""
+
+	switch (process.platform) {
+		case "win32":
+			configPath = pathModule.resolve(process.env.APPDATA!)
+			break
+		case "darwin":
+			configPath = pathModule.resolve(pathModule.join(os.homedir(), "Library/Application Support/"))
+			break
+		default:
+			configPath = process.env.XDG_CONFIG_HOME
+				? pathModule.resolve(process.env.XDG_CONFIG_HOME)
+				: pathModule.resolve(pathModule.join(os.homedir(), ".config/"))
+			break
+	}
+
+	if (!configPath || configPath.length === 0) {
+		throw new Error("Could not find homedir path.")
+	}
+
+	configPath = pathModule.join(configPath, "filen-webdav")
+
+	if (!fs.existsSync(configPath)) {
+		fs.mkdirSync(configPath, {
+			recursive: true
+		})
+	}
+
+	return configPath
 }

@@ -1,6 +1,6 @@
 import { type Request, type Response, type NextFunction } from "express"
 import type Server from ".."
-import FilenSDK from "@filen/sdk"
+import FilenSDK, { type SocketEvent } from "@filen/sdk"
 import { Semaphore, ISemaphore } from "../semaphore"
 import crypto from "crypto"
 
@@ -150,6 +150,14 @@ export class Auth {
 
 				throw e
 			}
+
+			sdk.socket.on("socketEvent", (event: SocketEvent) => {
+				if (event.type === "passwordChanged") {
+					delete this.server.users[username]
+					delete this.authedFilenUsers[username]
+					delete this.server.virtualFiles[username]
+				}
+			})
 
 			this.authedFilenUsers[username] = password
 
