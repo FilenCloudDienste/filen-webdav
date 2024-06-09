@@ -108,9 +108,27 @@ export class Put {
 			const path = removeLastSlash(decodeURI(req.url))
 			const parentPath = pathModule.posix.dirname(path)
 			const name = pathModule.posix.basename(path)
-			const parentResource = await this.server.pathToResource(req, parentPath)
+			const thisResource = await this.server.pathToResource(req, path)
 
 			// The SDK handles checking if a file with the same name and parent already exists
+			if (thisResource && thisResource.type === "directory") {
+				await Responses.alreadyExists(res)
+
+				return
+			}
+
+			const sdk = this.server.getSDKForUser(req.username)
+
+			if (!sdk) {
+				await Responses.notAuthorized(res)
+
+				return
+			}
+
+			await sdk.fs().mkdir({ path: parentPath })
+
+			const parentResource = await this.server.pathToResource(req, parentPath)
+
 			if (!parentResource || parentResource.type !== "directory") {
 				await Responses.preconditionFailed(res)
 
@@ -172,14 +190,6 @@ export class Put {
 			req.pipe(readStream)
 
 			if (didError) {
-				return
-			}
-
-			const sdk = this.server.getSDKForUser(req.username)
-
-			if (!sdk) {
-				await Responses.notAuthorized(res)
-
 				return
 			}
 

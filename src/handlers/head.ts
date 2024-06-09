@@ -78,7 +78,12 @@ export class Head {
 
 			res.set("Content-Type", mimeType)
 			res.set("Accept-Ranges", "bytes")
-			res.end()
+
+			await new Promise<void>(resolve => {
+				res.end(() => {
+					resolve()
+				})
+			})
 		} finally {
 			this.server.getRWMutexForUser(req.url, req.username).release()
 		}
