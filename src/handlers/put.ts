@@ -1,8 +1,6 @@
 import { type Request, type Response, type NextFunction } from "express"
 import type Server from ".."
 import pathModule from "path"
-import { PassThrough, Readable } from "stream"
-import { IncomingMessage } from "http"
 import { v4 as uuidv4 } from "uuid"
 import mimeTypes from "mime-types"
 import { removeLastSlash } from "../utils"
@@ -25,70 +23,6 @@ export class Put {
 	 */
 	public constructor(private readonly server: Server) {
 		this.handle = this.handle.bind(this)
-	}
-
-	/**
-	 * Check if the incoming request stream contains data.
-	 *
-	 * @public
-	 * @param {IncomingMessage} req
-	 * @returns {Promise<{ hasData: boolean; buffer: Buffer }>}
-	 */
-	public reqHasData(req: IncomingMessage): Promise<{ hasData: boolean; buffer: Buffer }> {
-		return new Promise((resolve, reject) => {
-			if (!(req instanceof Readable)) {
-				resolve({ hasData: false, buffer: Buffer.from([]) })
-
-				return
-			}
-
-			const bufferedChunks: Buffer[] = []
-			let hasData = false
-			const passThrough = new PassThrough()
-
-			req.pipe(passThrough)
-
-			const cleanup = async () => {
-				try {
-					passThrough.pause()
-
-					req.unpipe(passThrough)
-				} catch (e) {
-					// Noop
-				}
-			}
-
-			passThrough.on("data", async (chunk: Buffer) => {
-				if (chunk instanceof Buffer && chunk.byteLength > 0) {
-					hasData = true
-					bufferedChunks.push(chunk)
-
-					await cleanup()
-
-					resolve({
-						hasData,
-						buffer: Buffer.concat(bufferedChunks)
-					})
-				}
-			})
-
-			passThrough.on("end", async () => {
-				await cleanup()
-
-				resolve({
-					hasData,
-					buffer: Buffer.concat(bufferedChunks)
-				})
-			})
-
-			passThrough.on("error", async (err: Error) => {
-				await cleanup()
-
-				reject(err)
-			})
-
-			req.resume()
-		})
 	}
 
 	/**
@@ -135,9 +69,7 @@ export class Put {
 				return
 			}
 
-			const { hasData, buffer } = await this.reqHasData(req)
-
-			if (!hasData) {
+			if (!req.bodySize || !req.bodyStream || req.bodySize === 0) {
 				this.server.getVirtualFilesForUser(req.username)[path] = {
 					type: "file",
 					uuid: uuidv4(),
@@ -172,29 +104,9 @@ export class Put {
 			}
 
 			let didError = false
-			const readStream = new PassThrough()
-
-			readStream.on("error", err => {
-				didError = true
-
-				next(err)
-			})
-
-			req.on("error", err => {
-				didError = true
-
-				next(err)
-			})
-
-			readStream.write(buffer)
-			req.pipe(readStream)
-
-			if (didError) {
-				return
-			}
 
 			const item = await sdk.cloud().uploadLocalFileStream({
-				source: readStream,
+				source: req.bodyStream,
 				parent: parentResource.uuid,
 				name,
 				onError: err => {
@@ -206,11 +118,11 @@ export class Put {
 				}
 			})
 
-			delete this.server.getVirtualFilesForUser(req.username)[path]
-
 			if (didError) {
 				return
 			}
+
+			delete this.server.getVirtualFilesForUser(req.username)[path]
 
 			if (item.type !== "file") {
 				await Responses.badRequest(res)

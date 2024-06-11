@@ -20,6 +20,7 @@ import Unlock from "./handlers/unlock"
 import { Semaphore, type ISemaphore } from "./semaphore"
 import https from "https"
 import Certs from "./certs"
+import body from "./middlewares/body"
 
 export type ServerConfig = {
 	hostname: string
@@ -298,7 +299,7 @@ export class WebDAVServer {
 			const method = req.method.toUpperCase()
 
 			if (method === "POST" || method === "PUT") {
-				next()
+				body(req, res, next)
 
 				return
 			}
