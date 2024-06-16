@@ -58,7 +58,7 @@
 		"fs-extra": "^11.2.0",
 		"mime-types": "^2.1.35",
 		"selfsigned": "^2.4.1",
-		"uuid": "^9.0.1",
+		"uuid": "^10.0.0",
 		"xml-js-builder": "^1.0.3",
 		"xml2js": "^0.6.2"
 	}
