@@ -102,22 +102,27 @@ export class Auth {
 				return
 			}
 
-			const passwordEx = password.split("&twoFactorAuthentication=")
 			let parsedPassword: string | null = null
 			let parsedTwoFactorCode: string | undefined = undefined
 
-			if (!passwordEx[0] || !passwordEx[0].startsWith("password=")) {
-				throw new Error("Credentials wrongly formatted.")
-			}
-
-			if (passwordEx.length >= 2) {
-				const twoFactor = passwordEx[1]
-
-				if (twoFactor && twoFactor.length >= 6) {
-					parsedTwoFactorCode = twoFactor
-				}
+			if (!password.startsWith("password=")) {
+				parsedPassword = password
 			} else {
-				parsedPassword = passwordEx[0]!.slice(9)
+				const passwordEx = password.split("&twoFactorAuthentication=")
+
+				if (!passwordEx[0] || !passwordEx[0].startsWith("password=")) {
+					throw new Error("Credentials wrongly formatted.")
+				}
+
+				if (passwordEx.length >= 2) {
+					const twoFactor = passwordEx[1]
+
+					if (twoFactor && twoFactor.length >= 6) {
+						parsedTwoFactorCode = twoFactor
+					}
+				} else {
+					parsedPassword = passwordEx[0]!.slice(9)
+				}
 			}
 
 			if (!parsedPassword) {
