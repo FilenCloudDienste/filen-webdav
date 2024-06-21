@@ -21,6 +21,7 @@ import { Semaphore, type ISemaphore } from "./semaphore"
 import https from "https"
 import Certs from "./certs"
 import body from "./middlewares/body"
+import NodeCache from "node-cache"
 
 export type ServerConfig = {
 	hostname: string
@@ -59,6 +60,7 @@ export class WebDAVServer {
 	public readonly authMode: AuthMode
 	public readonly rwMutex: Record<string, Record<string, ISemaphore>> = {}
 	public readonly enableHTTPS: boolean
+	public readonly cache: Record<string, NodeCache> = {}
 
 	/**
 	 * Creates an instance of WebDAVServer.
@@ -170,6 +172,25 @@ export class WebDAVServer {
 		}
 
 		return null
+	}
+
+	/**
+	 * Returns a NodeCache instance for each user.
+	 *
+	 * @public
+	 * @param {?string} [username]
+	 * @returns {NodeCache}
+	 */
+	public getCacheForUser(username?: string): NodeCache {
+		if (!username) {
+			return new NodeCache()
+		}
+
+		if (!this.cache[username]) {
+			this.cache[username] = new NodeCache()
+		}
+
+		return this.cache[username]!
 	}
 
 	/**

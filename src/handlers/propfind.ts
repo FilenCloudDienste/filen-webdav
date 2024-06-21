@@ -3,6 +3,7 @@ import type Server from ".."
 import Responses from "../responses"
 import pathModule from "path"
 import { promiseAllChunked } from "../utils"
+import { type StatFS, type FilenSDK } from "@filen/sdk"
 
 /**
  * Propfind
@@ -21,6 +22,21 @@ export class Propfind {
 	 */
 	public constructor(private readonly server: Server) {
 		this.handle = this.handle.bind(this)
+	}
+
+	public async statfs(req: Request, sdk: FilenSDK): Promise<StatFS> {
+		const cache = this.server.getCacheForUser(req.username)
+		const get = cache.get<StatFS>("statfs")
+
+		if (get) {
+			return get
+		}
+
+		const stat = await sdk.fs().statfs()
+
+		cache.set<StatFS>("statfs", stat, 60)
+
+		return stat
 	}
 
 	/**
@@ -53,7 +69,7 @@ export class Propfind {
 				return
 			}
 
-			const statfs = await sdk.fs().statfs()
+			const statfs = await this.statfs(req, sdk)
 
 			if (resource.type === "directory" && depth !== "0") {
 				const content = await sdk.fs().readdir({ path: resource.url })

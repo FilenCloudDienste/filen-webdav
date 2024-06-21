@@ -1,6 +1,6 @@
 {
 	"name": "@filen/webdav",
-	"version": "0.2.9",
+	"version": "0.2.10",
 	"description": "Filen WebDAV",
 	"main": "dist/index.js",
 	"types": "dist/index.d.ts",
@@ -57,6 +57,7 @@
 		"express-async-handler": "^1.2.0",
 		"fs-extra": "^11.2.0",
 		"mime-types": "^2.1.35",
+		"node-cache": "^5.1.2",
 		"selfsigned": "^2.4.1",
 		"uuid": "^9.0.1",
 		"xml-js-builder": "^1.0.3",
