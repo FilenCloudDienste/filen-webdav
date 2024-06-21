@@ -53,6 +53,8 @@ export class Propfind {
 				return
 			}
 
+			const statfs = await sdk.fs().statfs()
+
 			if (resource.type === "directory" && depth !== "0") {
 				const content = await sdk.fs().readdir({ path: resource.url })
 				const contentIncludingStats = await promiseAllChunked(
@@ -67,25 +69,39 @@ export class Propfind {
 					}
 				}
 
-				await Responses.propfind(res, [
-					resource,
-					...contentIncludingStats.map(item => ({
-						...item,
-						path: pathModule.posix.join(resource.path, item.name),
-						url: `${pathModule.posix.join(resource.path, item.name)}${item.type === "directory" ? "/" : ""}`,
-						isVirtual: false
-					}))
-				])
+				await Responses.propfind(
+					res,
+					[
+						resource,
+						...contentIncludingStats.map(item => ({
+							...item,
+							path: pathModule.posix.join(resource.path, item.name),
+							url: `${pathModule.posix.join(resource.path, item.name)}${item.type === "directory" ? "/" : ""}`,
+							isVirtual: false
+						}))
+					],
+					{
+						available: (statfs.max - statfs.used) * 1,
+						used: statfs.used * 1
+					}
+				)
 
 				return
 			}
 
-			await Responses.propfind(res, [
+			await Responses.propfind(
+				res,
+				[
+					{
+						...resource,
+						url: `${resource.url}${resource.type === "directory" && !resource.url.endsWith("/") ? "/" : ""}`
+					}
+				],
 				{
-					...resource,
-					url: `${resource.url}${resource.type === "directory" && !resource.url.endsWith("/") ? "/" : ""}`
+					available: (statfs.max - statfs.used) * 1,
+					used: statfs.used * 1
 				}
-			])
+			)
 		} finally {
 			this.server.getRWMutexForUser(req.url, req.username).release()
 		}

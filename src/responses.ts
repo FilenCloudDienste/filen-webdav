@@ -19,7 +19,7 @@ export class Responses {
 		}
 	})
 
-	public static async propfind(res: Response, resources: Resource[]): Promise<void> {
+	public static async propfind(res: Response, resources: Resource[], quota: { used: number; available: number }): Promise<void> {
 		const response = this.xmlBuilder.buildObject({
 			"D:multistatus": {
 				$: {
@@ -34,6 +34,8 @@ export class Responses {
 							"D:getcontentlength": resource.type === "directory" ? 0 : resource.size,
 							"D:getetag": resource.uuid,
 							"D:creationdate": dayjs(resource.birthtimeMs).format("ddd, DD MMM YYYY HH:mm:ss [GMT]"),
+							"D:quota-available-bytes": quota.available.toString(),
+							"D:quota-used-bytes": quota.used.toString(),
 							"D:getcontenttype":
 								resource.type === "directory"
 									? "httpd/unix-directory"
