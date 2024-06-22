@@ -91,7 +91,7 @@ export class Get {
 		res.set("Content-Type", mimeType)
 		res.set("Accept-Ranges", "bytes")
 
-		const stream = await sdk.cloud().downloadFileToReadableStream({
+		const stream = sdk.cloud().downloadFileToReadableStream({
 			uuid: resource.uuid,
 			bucket: resource.bucket,
 			region: resource.region,
@@ -105,7 +105,40 @@ export class Get {
 
 		const nodeStream = Readable.fromWeb(stream as unknown as ReadableStreamWebType<Buffer>)
 
-		nodeStream.once("error", next)
+		const cleanup = () => {
+			try {
+				if (!nodeStream.closed || !nodeStream.destroyed) {
+					nodeStream.destroy()
+				}
+			} catch {
+				// Noop
+			}
+		}
+
+		res.once("close", () => {
+			cleanup()
+		})
+
+		res.once("error", () => {
+			cleanup()
+		})
+
+		res.once("finish", () => {
+			cleanup()
+		})
+
+		req.once("close", () => {
+			cleanup()
+		})
+
+		req.once("error", () => {
+			cleanup()
+		})
+
+		nodeStream.once("error", err => {
+			cleanup()
+			next(err)
+		})
 
 		nodeStream.pipe(res)
 	}

@@ -49,6 +49,10 @@ export const Semaphore = function (this: ISemaphore, max: number) {
 	}
 
 	this.release = function (): void {
+		if (counter <= 0) {
+			return
+		}
+
 		counter--
 
 		take()
