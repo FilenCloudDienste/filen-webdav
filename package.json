@@ -50,7 +50,7 @@
 		"typescript": "^5.3.3"
 	},
 	"dependencies": {
-		"@filen/sdk": "^0.1.118",
+		"@filen/sdk": "^0.1.120",
 		"body-parser": "^1.20.2",
 		"dayjs": "^1.11.11",
 		"express": "^4.19.2",
