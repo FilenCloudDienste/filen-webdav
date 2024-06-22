@@ -33,97 +33,80 @@ export class Move {
 	 * @returns {Promise<void>}
 	 */
 	public async handle(req: Request, res: Response): Promise<void> {
-		await this.server.getRWMutexForUser(req.url, req.username).acquire()
+		const destinationHeader = req.headers["destination"]
+		const overwrite = req.headers["overwrite"] === "T"
+
+		if (
+			typeof destinationHeader !== "string" ||
+			!destinationHeader.includes(req.hostname) ||
+			!destinationHeader.includes(req.protocol)
+		) {
+			await Responses.badRequest(res)
+
+			return
+		}
+
+		let url: URL | null
 
 		try {
-			const destinationHeader = req.headers["destination"]
-			const overwrite = req.headers["overwrite"] === "T"
+			url = new URL(destinationHeader)
+		} catch {
+			await Responses.badRequest(res)
 
-			if (
-				typeof destinationHeader !== "string" ||
-				!destinationHeader.includes(req.hostname) ||
-				!destinationHeader.includes(req.protocol)
-			) {
-				await Responses.badRequest(res)
+			return
+		}
 
-				return
-			}
+		if (!url) {
+			await Responses.badRequest(res)
 
-			let url: URL | null
+			return
+		}
 
-			try {
-				url = new URL(destinationHeader)
-			} catch {
-				await Responses.badRequest(res)
+		const destination = decodeURI(url.pathname)
 
-				return
-			}
+		if (destination.startsWith("..") || destination.startsWith("./") || destination.startsWith("../")) {
+			await Responses.forbidden(res)
 
-			if (!url) {
-				await Responses.badRequest(res)
+			return
+		}
 
-				return
-			}
+		const [resource, destinationResource] = await Promise.all([
+			this.server.urlToResource(req),
+			this.server.pathToResource(req, removeLastSlash(destination))
+		])
 
-			const destination = decodeURI(url.pathname)
+		if (!resource) {
+			await Responses.notFound(res, req.url)
 
-			if (destination.startsWith("..") || destination.startsWith("./") || destination.startsWith("../")) {
-				await Responses.forbidden(res)
+			return
+		}
 
-				return
-			}
+		if (resource.path === destination || destination.startsWith(resource.path)) {
+			await Responses.forbidden(res)
 
-			const [resource, destinationResource] = await Promise.all([
-				this.server.urlToResource(req),
-				this.server.pathToResource(req, removeLastSlash(destination))
-			])
+			return
+		}
 
-			if (!resource) {
-				await Responses.notFound(res, req.url)
+		if (!overwrite && destinationResource) {
+			await Responses.alreadyExists(res)
 
-				return
-			}
+			return
+		}
 
-			if (resource.path === destination || destination.startsWith(resource.path)) {
-				await Responses.forbidden(res)
+		const sdk = this.server.getSDKForUser(req.username)
 
-				return
-			}
+		if (!sdk) {
+			await Responses.notAuthorized(res)
 
-			if (!overwrite && destinationResource) {
-				await Responses.alreadyExists(res)
+			return
+		}
 
-				return
-			}
-
-			const sdk = this.server.getSDKForUser(req.username)
-
-			if (!sdk) {
-				await Responses.notAuthorized(res)
-
-				return
-			}
-
-			if (resource.isVirtual) {
-				if (overwrite && destinationResource && !destinationResource.isVirtual) {
-					await sdk.fs().unlink({
-						path: destinationResource.path,
-						permanent: true
-					})
-
-					this.server.getVirtualFilesForUser(req.username)[destination] = {
-						...resource,
-						url: destination,
-						path: destination,
-						name: pathModule.posix.basename(destination)
-					}
-
-					delete this.server.getVirtualFilesForUser(req.username)[resource.path]
-
-					await Responses.noContent(res)
-
-					return
-				}
+		if (resource.isVirtual) {
+			if (overwrite && destinationResource && !destinationResource.isVirtual) {
+				await sdk.fs().unlink({
+					path: destinationResource.path,
+					permanent: true
+				})
 
 				this.server.getVirtualFilesForUser(req.username)[destination] = {
 					...resource,
@@ -134,36 +117,47 @@ export class Move {
 
 				delete this.server.getVirtualFilesForUser(req.username)[resource.path]
 
-				await Responses.created(res)
-
-				return
-			}
-
-			if (overwrite && destinationResource) {
-				await sdk.fs().unlink({
-					path: destinationResource.path,
-					permanent: true
-				})
-
-				await sdk.fs().rename({
-					from: resource.path,
-					to: destination
-				})
-
 				await Responses.noContent(res)
 
 				return
 			}
+
+			this.server.getVirtualFilesForUser(req.username)[destination] = {
+				...resource,
+				url: destination,
+				path: destination,
+				name: pathModule.posix.basename(destination)
+			}
+
+			delete this.server.getVirtualFilesForUser(req.username)[resource.path]
+
+			await Responses.created(res)
+
+			return
+		}
+
+		if (overwrite && destinationResource) {
+			await sdk.fs().unlink({
+				path: destinationResource.path,
+				permanent: true
+			})
 
 			await sdk.fs().rename({
 				from: resource.path,
 				to: destination
 			})
 
-			await Responses.created(res)
-		} finally {
-			this.server.getRWMutexForUser(req.url, req.username).release()
+			await Responses.noContent(res)
+
+			return
 		}
+
+		await sdk.fs().rename({
+			from: resource.path,
+			to: destination
+		})
+
+		await Responses.created(res)
 	}
 }
 

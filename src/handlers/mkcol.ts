@@ -32,34 +32,28 @@ export class Mkcol {
 	 * @returns {Promise<void>}
 	 */
 	public async handle(req: Request, res: Response): Promise<void> {
-		await this.server.getRWMutexForUser(req.url, req.username).acquire()
+		const path = decodeURI(req.url.endsWith("/") ? req.url.slice(0, req.url.length - 1) : req.url)
+		const parentPath = pathModule.posix.dirname(path)
+		const parentResource = await this.server.pathToResource(req, parentPath)
 
-		try {
-			const path = decodeURI(req.url.endsWith("/") ? req.url.slice(0, req.url.length - 1) : req.url)
-			const parentPath = pathModule.posix.dirname(path)
-			const parentResource = await this.server.pathToResource(req, parentPath)
+		// The SDK handles checking if a directory with the same name and parent already exists
+		if (!parentResource || parentResource.type !== "directory") {
+			await Responses.preconditionFailed(res)
 
-			// The SDK handles checking if a directory with the same name and parent already exists
-			if (!parentResource || parentResource.type !== "directory") {
-				await Responses.preconditionFailed(res)
-
-				return
-			}
-
-			const sdk = this.server.getSDKForUser(req.username)
-
-			if (!sdk) {
-				await Responses.notAuthorized(res)
-
-				return
-			}
-
-			await sdk.fs().mkdir({ path })
-
-			await Responses.created(res)
-		} finally {
-			this.server.getRWMutexForUser(req.url, req.username).release()
+			return
 		}
+
+		const sdk = this.server.getSDKForUser(req.username)
+
+		if (!sdk) {
+			await Responses.notAuthorized(res)
+
+			return
+		}
+
+		await sdk.fs().mkdir({ path })
+
+		await Responses.created(res)
 	}
 }
 

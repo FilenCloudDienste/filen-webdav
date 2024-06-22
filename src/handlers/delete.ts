@@ -31,42 +31,36 @@ export class Delete {
 	 * @returns {Promise<void>}
 	 */
 	public async handle(req: Request, res: Response): Promise<void> {
-		await this.server.getRWMutexForUser(req.url, req.username).acquire()
+		const resource = await this.server.urlToResource(req)
 
-		try {
-			const resource = await this.server.urlToResource(req)
+		if (!resource) {
+			await Responses.notFound(res, req.url)
 
-			if (!resource) {
-				await Responses.notFound(res, req.url)
+			return
+		}
 
-				return
-			}
-
-			if (resource.isVirtual) {
-				delete this.server.getVirtualFilesForUser(req.username)[resource.path]
-
-				await Responses.ok(res)
-
-				return
-			}
-
-			const sdk = this.server.getSDKForUser(req.username)
-
-			if (!sdk) {
-				await Responses.notAuthorized(res)
-
-				return
-			}
-
-			await sdk.fs().unlink({
-				path: resource.path,
-				permanent: true
-			})
+		if (resource.isVirtual) {
+			delete this.server.getVirtualFilesForUser(req.username)[resource.path]
 
 			await Responses.ok(res)
-		} finally {
-			this.server.getRWMutexForUser(req.url, req.username).release()
+
+			return
 		}
+
+		const sdk = this.server.getSDKForUser(req.username)
+
+		if (!sdk) {
+			await Responses.notAuthorized(res)
+
+			return
+		}
+
+		await sdk.fs().unlink({
+			path: resource.path,
+			permanent: true
+		})
+
+		await Responses.ok(res)
 	}
 }
 
