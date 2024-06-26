@@ -107,7 +107,7 @@ export class Get {
 
 		const cleanup = () => {
 			try {
-				if (!nodeStream.closed || !nodeStream.destroyed) {
+				if (!nodeStream.closed && !nodeStream.destroyed) {
 					nodeStream.destroy()
 				}
 			} catch {
@@ -137,6 +137,7 @@ export class Get {
 
 		nodeStream.once("error", err => {
 			cleanup()
+
 			next(err)
 		})
 
