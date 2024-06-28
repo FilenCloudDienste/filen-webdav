@@ -6,7 +6,7 @@ on:
 
 # Allow one concurrent deployment
 concurrency:
-    group: "pages"
+    group: "npm"
     cancel-in-progress: true
 
 env:
