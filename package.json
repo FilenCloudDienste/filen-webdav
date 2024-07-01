@@ -37,7 +37,7 @@
 		"@types/fs-extra": "^11.0.4",
 		"@types/lodash": "^4.14.202",
 		"@types/mime-types": "^2.1.4",
-		"@types/uuid": "^9.0.8",
+		"@types/uuid": "^10.0.0",
 		"@types/xml2js": "^0.4.14",
 		"@typescript-eslint/eslint-plugin": "^6.20.0",
 		"@typescript-eslint/parser": "^6.20.0",
@@ -59,7 +59,7 @@
 		"mime-types": "^2.1.35",
 		"node-cache": "^5.1.2",
 		"selfsigned": "^2.4.1",
-		"uuid": "^9.0.1",
+		"uuid": "^10.0.0",
 		"xml-js-builder": "^1.0.3",
 		"xml2js": "^0.6.2"
 	}
