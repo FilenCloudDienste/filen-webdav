@@ -22,6 +22,7 @@ import https from "https"
 import Certs from "./certs"
 import body from "./middlewares/body"
 import NodeCache from "node-cache"
+import http, { type IncomingMessage, type ServerResponse } from "http"
 
 export type ServerConfig = {
 	hostname: string
@@ -61,6 +62,10 @@ export class WebDAVServer {
 	public readonly rwMutex: Record<string, Record<string, ISemaphore>> = {}
 	public readonly enableHTTPS: boolean
 	public readonly cache: Record<string, NodeCache> = {}
+	public serverInstance:
+		| https.Server<typeof IncomingMessage, typeof ServerResponse>
+		| http.Server<typeof IncomingMessage, typeof ServerResponse>
+		| null = null
 
 	/**
 	 * Creates an instance of WebDAVServer.
@@ -348,7 +353,7 @@ export class WebDAVServer {
 			if (this.enableHTTPS) {
 				Certs.get()
 					.then(certs => {
-						https
+						this.serverInstance = https
 							.createServer(
 								{
 									cert: certs.cert,
@@ -362,10 +367,37 @@ export class WebDAVServer {
 					})
 					.catch(reject)
 			} else {
-				this.server.listen(this.serverConfig.port, this.serverConfig.hostname, () => {
+				this.serverInstance = http.createServer(this.server).listen(this.serverConfig.port, this.serverConfig.hostname, () => {
 					resolve()
 				})
 			}
+		})
+	}
+
+	/**
+	 * Stop the server.
+	 *
+	 * @public
+	 * @async
+	 * @returns {Promise<void>}
+	 */
+	public async stop(): Promise<void> {
+		await new Promise<void>((resolve, reject) => {
+			if (!this.serverInstance) {
+				resolve()
+
+				return
+			}
+
+			this.serverInstance.close(err => {
+				if (err) {
+					reject(err)
+
+					return
+				}
+
+				resolve()
+			})
 		})
 	}
 }
