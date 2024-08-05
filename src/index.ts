@@ -101,7 +101,8 @@ export class WebDAVServer {
 		authMode?: "basic" | "digest"
 		https?: boolean
 		user?: {
-			sdkConfig: FilenSDKConfig
+			sdkConfig?: FilenSDKConfig
+			sdk?: FilenSDK
 			username: string
 			password: string
 		}
@@ -120,17 +121,23 @@ export class WebDAVServer {
 		}
 
 		if (user) {
+			if (!user.sdk && !user.sdkConfig) {
+				throw new Error("Either pass a configured SDK instance OR a SDKConfig object to the user object.")
+			}
+
 			this.defaultUsername = user.username
 			this.defaultPassword = user.password
 
 			this.users[user.username] = {
 				username: user.username,
 				password: user.password,
-				sdk: new FilenSDK({
-					...user.sdkConfig,
-					connectToSocket: true,
-					metadataCache: true
-				})
+				sdk: user.sdk
+					? user.sdk
+					: new FilenSDK({
+							...user.sdkConfig,
+							connectToSocket: true,
+							metadataCache: true
+					  })
 			}
 
 			if (this.defaultUsername.length === 0 || this.defaultPassword.length === 0) {
