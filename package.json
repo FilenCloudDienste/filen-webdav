@@ -1,6 +1,6 @@
 {
 	"name": "@filen/webdav",
-	"version": "0.2.23",
+	"version": "0.2.24",
 	"description": "Filen WebDAV",
 	"main": "dist/index.js",
 	"types": "dist/index.d.ts",
@@ -51,7 +51,7 @@
 		"typescript": "^5.3.3"
 	},
 	"dependencies": {
-		"@filen/sdk": "^0.1.139",
+		"@filen/sdk": "^0.1.143",
 		"body-parser": "^1.20.2",
 		"dayjs": "^1.11.11",
 		"express": "^4.19.2",
