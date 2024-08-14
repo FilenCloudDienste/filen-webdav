@@ -1,6 +1,6 @@
 {
 	"name": "@filen/webdav",
-	"version": "0.2.27",
+	"version": "0.2.28",
 	"description": "Filen WebDAV",
 	"main": "dist/index.js",
 	"types": "dist/index.d.ts",
@@ -39,6 +39,7 @@
 		"@types/lodash": "^4.14.202",
 		"@types/mime-types": "^2.1.4",
 		"@types/uuid": "^10.0.0",
+		"@types/write-file-atomic": "^4.0.3",
 		"@types/xml2js": "^0.4.14",
 		"@typescript-eslint/eslint-plugin": "^6.20.0",
 		"@typescript-eslint/parser": "^6.20.0",
@@ -61,6 +62,7 @@
 		"node-cache": "^5.1.2",
 		"selfsigned": "^2.4.1",
 		"uuid": "^10.0.0",
+		"write-file-atomic": "^5.0.1",
 		"xml-js-builder": "^1.0.3",
 		"xml2js": "^0.6.2"
 	}

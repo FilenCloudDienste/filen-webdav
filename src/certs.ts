@@ -2,6 +2,7 @@ import selfsigned from "selfsigned"
 import fs from "fs-extra"
 import pathModule from "path"
 import { platformConfigPath } from "./utils"
+import writeFileAtomic from "write-file-atomic"
 
 /**
  * Certs
@@ -60,9 +61,9 @@ export class Certs {
 		)
 
 		await Promise.all([
-			fs.writeFile(this.certPath, generated.cert),
-			fs.writeFile(this.privateKeyPath, generated.private),
-			fs.writeFile(this.expiryPath, (now + 86400 * 360).toString())
+			writeFileAtomic(this.certPath, generated.cert, "utf-8"),
+			writeFileAtomic(this.privateKeyPath, generated.private, "utf-8"),
+			writeFileAtomic(this.expiryPath, (now + 86400 * 360).toString(), "utf-8")
 		])
 
 		return {
