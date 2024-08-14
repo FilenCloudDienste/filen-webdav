@@ -28,7 +28,23 @@ npm install @filen/webdav@latest
 ```typescript
 // Standalone mode, single user
 
+import FilenSDK from "@filen/sdk"
+import path from "path"
+import os from "os"
 import WebDAVServer from "@filen/webdav"
+
+// Initialize a SDK instance (optional)
+const filen = new FilenSDK({
+	metadataCache: true,
+	connectToSocket: true,
+	tmpPath: path.join(os.tmpdir(), "filen-sdk")
+})
+
+await filen.login({
+	email: "your@email.com",
+	password: "supersecret123",
+	twoFactorCode: "123456"
+})
 
 const hostname = "127.0.0.1"
 const port = 1900
@@ -40,7 +56,7 @@ const server = new WebDAVServer({
 	user: {
 		username: "admin",
 		password: "admin",
-		sdkConfig
+		sdk: filen
 	},
 	authMode: "basic" | "digest"
 })
