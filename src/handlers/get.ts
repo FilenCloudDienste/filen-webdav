@@ -107,6 +107,8 @@ export class Get {
 
 		const cleanup = () => {
 			try {
+				stream.cancel().catch(() => {})
+
 				if (!nodeStream.closed && !nodeStream.destroyed) {
 					nodeStream.destroy()
 				}

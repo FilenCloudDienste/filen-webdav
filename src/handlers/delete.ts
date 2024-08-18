@@ -57,7 +57,7 @@ export class Delete {
 
 		await sdk.fs().unlink({
 			path: resource.path,
-			permanent: true
+			permanent: false
 		})
 
 		await Responses.ok(res)

@@ -105,7 +105,7 @@ export class Move {
 			if (overwrite && destinationResource && !destinationResource.isVirtual) {
 				await sdk.fs().unlink({
 					path: destinationResource.path,
-					permanent: true
+					permanent: false
 				})
 
 				this.server.getVirtualFilesForUser(req.username)[destination] = {
@@ -139,7 +139,7 @@ export class Move {
 		if (overwrite && destinationResource) {
 			await sdk.fs().unlink({
 				path: destinationResource.path,
-				permanent: true
+				permanent: false
 			})
 
 			await sdk.fs().rename({
