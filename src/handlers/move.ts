@@ -81,8 +81,8 @@ export class Move {
 			return
 		}
 
-		if (resource.path === destination || destination.startsWith(resource.path)) {
-			await Responses.forbidden(res)
+		if (resource.path === destination) {
+			await Responses.created(res)
 
 			return
 		}
