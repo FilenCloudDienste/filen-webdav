@@ -1,4 +1,4 @@
-import { type Request, type Response, type NextFunction } from "express"
+import { type Request, type Response } from "express"
 import type Server from ".."
 import mimeTypes from "mime-types"
 import { Readable } from "stream"
@@ -32,10 +32,9 @@ export class Get {
 	 * @async
 	 * @param {Request} req
 	 * @param {Response} res
-	 * @param {NextFunction} next
 	 * @returns {Promise<void>}
 	 */
-	public async handle(req: Request, res: Response, next: NextFunction): Promise<void> {
+	public async handle(req: Request, res: Response): Promise<void> {
 		try {
 			const resource = await this.server.urlToResource(req)
 
@@ -138,10 +137,8 @@ export class Get {
 				cleanup()
 			})
 
-			nodeStream.once("error", err => {
+			nodeStream.once("error", () => {
 				cleanup()
-
-				next(err)
 			})
 
 			nodeStream.pipe(res)

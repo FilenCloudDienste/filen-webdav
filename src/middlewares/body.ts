@@ -25,7 +25,5 @@ export default function body(req: Request, _: Response, next: NextFunction): voi
 
 	req.on("error", err => {
 		passThrough.emit("error", err)
-
-		next(err)
 	})
 }

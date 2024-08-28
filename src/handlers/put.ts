@@ -1,4 +1,4 @@
-import { type Request, type Response, type NextFunction } from "express"
+import { type Request, type Response } from "express"
 import type Server from ".."
 import pathModule from "path"
 import { v4 as uuidv4 } from "uuid"
@@ -32,10 +32,9 @@ export class Put {
 	 * @async
 	 * @param {Request} req
 	 * @param {Response} res
-	 * @param {NextFunction} next
 	 * @returns {Promise<void>}
 	 */
-	public async handle(req: Request, res: Response, next: NextFunction): Promise<void> {
+	public async handle(req: Request, res: Response): Promise<void> {
 		try {
 			const path = removeLastSlash(decodeURI(req.url))
 			const parentPath = pathModule.posix.dirname(path)
@@ -107,12 +106,12 @@ export class Put {
 				source: req.bodyStream,
 				parent: parentResource.uuid,
 				name,
-				onError: err => {
+				onError: () => {
 					delete this.server.getVirtualFilesForUser(req.username)[path]
 
 					didError = true
 
-					next(err)
+					Responses.internalError(res).catch(() => {})
 				}
 			})
 
