@@ -33,80 +33,95 @@ export class Move {
 	 * @returns {Promise<void>}
 	 */
 	public async handle(req: Request, res: Response): Promise<void> {
-		const destinationHeader = req.headers["destination"]
-		const overwrite = req.headers["overwrite"] === "T"
-
-		if (
-			typeof destinationHeader !== "string" ||
-			!destinationHeader.includes(req.hostname) ||
-			!destinationHeader.includes(req.protocol)
-		) {
-			await Responses.badRequest(res)
-
-			return
-		}
-
-		let url: URL | null
-
 		try {
-			url = new URL(destinationHeader)
-		} catch {
-			await Responses.badRequest(res)
+			const destinationHeader = req.headers["destination"]
+			const overwrite = req.headers["overwrite"] === "T"
 
-			return
-		}
+			if (
+				typeof destinationHeader !== "string" ||
+				!destinationHeader.includes(req.hostname) ||
+				!destinationHeader.includes(req.protocol)
+			) {
+				await Responses.badRequest(res)
 
-		if (!url) {
-			await Responses.badRequest(res)
+				return
+			}
 
-			return
-		}
+			let url: URL | null
 
-		const destination = decodeURI(url.pathname)
+			try {
+				url = new URL(destinationHeader)
+			} catch {
+				await Responses.badRequest(res)
 
-		if (destination.startsWith("..") || destination.startsWith("./") || destination.startsWith("../")) {
-			await Responses.forbidden(res)
+				return
+			}
 
-			return
-		}
+			if (!url) {
+				await Responses.badRequest(res)
 
-		const [resource, destinationResource] = await Promise.all([
-			this.server.urlToResource(req),
-			this.server.pathToResource(req, removeLastSlash(destination))
-		])
+				return
+			}
 
-		if (!resource) {
-			await Responses.notFound(res, req.url)
+			const destination = decodeURI(url.pathname)
 
-			return
-		}
+			if (destination.startsWith("..") || destination.startsWith("./") || destination.startsWith("../")) {
+				await Responses.forbidden(res)
 
-		if (resource.path === destination) {
-			await Responses.created(res)
+				return
+			}
 
-			return
-		}
+			const [resource, destinationResource] = await Promise.all([
+				this.server.urlToResource(req),
+				this.server.pathToResource(req, removeLastSlash(destination))
+			])
 
-		if (!overwrite && destinationResource) {
-			await Responses.alreadyExists(res)
+			if (!resource) {
+				await Responses.notFound(res, req.url)
 
-			return
-		}
+				return
+			}
 
-		const sdk = this.server.getSDKForUser(req.username)
+			if (resource.path === destination) {
+				await Responses.created(res)
 
-		if (!sdk) {
-			await Responses.notAuthorized(res)
+				return
+			}
 
-			return
-		}
+			if (!overwrite && destinationResource) {
+				await Responses.alreadyExists(res)
 
-		if (resource.isVirtual) {
-			if (overwrite && destinationResource && !destinationResource.isVirtual) {
-				await sdk.fs().unlink({
-					path: destinationResource.path,
-					permanent: false
-				})
+				return
+			}
+
+			const sdk = this.server.getSDKForUser(req.username)
+
+			if (!sdk) {
+				await Responses.notAuthorized(res)
+
+				return
+			}
+
+			if (resource.isVirtual) {
+				if (overwrite && destinationResource && !destinationResource.isVirtual) {
+					await sdk.fs().unlink({
+						path: destinationResource.path,
+						permanent: true
+					})
+
+					this.server.getVirtualFilesForUser(req.username)[destination] = {
+						...resource,
+						url: destination,
+						path: destination,
+						name: pathModule.posix.basename(destination)
+					}
+
+					delete this.server.getVirtualFilesForUser(req.username)[resource.path]
+
+					await Responses.noContent(res)
+
+					return
+				}
 
 				this.server.getVirtualFilesForUser(req.username)[destination] = {
 					...resource,
@@ -117,47 +132,36 @@ export class Move {
 
 				delete this.server.getVirtualFilesForUser(req.username)[resource.path]
 
-				await Responses.noContent(res)
+				await Responses.created(res)
 
 				return
 			}
 
-			this.server.getVirtualFilesForUser(req.username)[destination] = {
-				...resource,
-				url: destination,
-				path: destination,
-				name: pathModule.posix.basename(destination)
+			if (overwrite && destinationResource) {
+				await sdk.fs().unlink({
+					path: destinationResource.path,
+					permanent: false
+				})
+
+				await sdk.fs().rename({
+					from: resource.path,
+					to: destination
+				})
+
+				await Responses.noContent(res)
+
+				return
 			}
-
-			delete this.server.getVirtualFilesForUser(req.username)[resource.path]
-
-			await Responses.created(res)
-
-			return
-		}
-
-		if (overwrite && destinationResource) {
-			await sdk.fs().unlink({
-				path: destinationResource.path,
-				permanent: false
-			})
 
 			await sdk.fs().rename({
 				from: resource.path,
 				to: destination
 			})
 
-			await Responses.noContent(res)
-
-			return
+			await Responses.created(res)
+		} catch {
+			Responses.internalError(res).catch(() => {})
 		}
-
-		await sdk.fs().rename({
-			from: resource.path,
-			to: destination
-		})
-
-		await Responses.created(res)
 	}
 }
 

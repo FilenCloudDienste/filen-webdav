@@ -49,72 +49,76 @@ export class Propfind {
 	 * @returns {Promise<void>}
 	 */
 	public async handle(req: Request, res: Response): Promise<void> {
-		const depth = req.header("depth") ?? "1"
-		const resource = await this.server.urlToResource(req)
+		try {
+			const depth = req.header("depth") ?? "1"
+			const resource = await this.server.urlToResource(req)
 
-		if (!resource) {
-			await Responses.notFound(res, req.url)
+			if (!resource) {
+				await Responses.notFound(res, req.url)
 
-			return
-		}
+				return
+			}
 
-		const sdk = this.server.getSDKForUser(req.username)
+			const sdk = this.server.getSDKForUser(req.username)
 
-		if (!sdk) {
-			await Responses.notAuthorized(res)
+			if (!sdk) {
+				await Responses.notAuthorized(res)
 
-			return
-		}
+				return
+			}
 
-		const statfs = await this.statfs(req, sdk)
+			const statfs = await this.statfs(req, sdk)
 
-		if (resource.type === "directory" && depth !== "0") {
-			const content = await sdk.fs().readdir({ path: resource.url })
-			const contentIncludingStats = await promiseAllChunked(
-				content.map(item => sdk.fs().stat({ path: pathModule.posix.join(resource.url, item) }))
-			)
+			if (resource.type === "directory" && depth !== "0") {
+				const content = await sdk.fs().readdir({ path: resource.url })
+				const contentIncludingStats = await promiseAllChunked(
+					content.map(item => sdk.fs().stat({ path: pathModule.posix.join(resource.url, item) }))
+				)
 
-			for (const path in this.server.getVirtualFilesForUser(req.username)) {
-				const parentPath = pathModule.dirname(path)
+				for (const path in this.server.getVirtualFilesForUser(req.username)) {
+					const parentPath = pathModule.dirname(path)
 
-				if (parentPath === resource.path || parentPath === resource.url) {
-					contentIncludingStats.push(this.server.getVirtualFilesForUser(req.username)[path]!)
+					if (parentPath === resource.path || parentPath === resource.url) {
+						contentIncludingStats.push(this.server.getVirtualFilesForUser(req.username)[path]!)
+					}
 				}
+
+				await Responses.propfind(
+					res,
+					[
+						resource,
+						...contentIncludingStats.map(item => ({
+							...item,
+							path: pathModule.posix.join(resource.path, item.name),
+							url: `${pathModule.posix.join(resource.path, item.name)}${item.type === "directory" ? "/" : ""}`,
+							isVirtual: false
+						}))
+					],
+					{
+						available: (statfs.max - statfs.used) * 1,
+						used: statfs.used * 1
+					}
+				)
+
+				return
 			}
 
 			await Responses.propfind(
 				res,
 				[
-					resource,
-					...contentIncludingStats.map(item => ({
-						...item,
-						path: pathModule.posix.join(resource.path, item.name),
-						url: `${pathModule.posix.join(resource.path, item.name)}${item.type === "directory" ? "/" : ""}`,
-						isVirtual: false
-					}))
+					{
+						...resource,
+						url: `${resource.url}${resource.type === "directory" && !resource.url.endsWith("/") ? "/" : ""}`
+					}
 				],
 				{
 					available: (statfs.max - statfs.used) * 1,
 					used: statfs.used * 1
 				}
 			)
-
-			return
+		} catch {
+			Responses.internalError(res).catch(() => {})
 		}
-
-		await Responses.propfind(
-			res,
-			[
-				{
-					...resource,
-					url: `${resource.url}${resource.type === "directory" && !resource.url.endsWith("/") ? "/" : ""}`
-				}
-			],
-			{
-				available: (statfs.max - statfs.used) * 1,
-				used: statfs.used * 1
-			}
-		)
 	}
 }
 

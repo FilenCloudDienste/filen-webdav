@@ -19,7 +19,11 @@ export class Options {
 	 * @returns {Promise<void>}
 	 */
 	public async handle(_: Request, res: Response): Promise<void> {
-		await Responses.ok(res)
+		try {
+			await Responses.ok(res)
+		} catch {
+			Responses.internalError(res).catch(() => {})
+		}
 	}
 }
 

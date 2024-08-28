@@ -36,120 +36,124 @@ export class Put {
 	 * @returns {Promise<void>}
 	 */
 	public async handle(req: Request, res: Response, next: NextFunction): Promise<void> {
-		const path = removeLastSlash(decodeURI(req.url))
-		const parentPath = pathModule.posix.dirname(path)
-		const name = pathModule.posix.basename(path)
-		const thisResource = await this.server.pathToResource(req, path)
+		try {
+			const path = removeLastSlash(decodeURI(req.url))
+			const parentPath = pathModule.posix.dirname(path)
+			const name = pathModule.posix.basename(path)
+			const thisResource = await this.server.pathToResource(req, path)
 
-		// The SDK handles checking if a file with the same name and parent already exists
-		if (thisResource && thisResource.type === "directory") {
-			await Responses.alreadyExists(res)
+			// The SDK handles checking if a file with the same name and parent already exists
+			if (thisResource && thisResource.type === "directory") {
+				await Responses.alreadyExists(res)
 
-			return
-		}
-
-		const sdk = this.server.getSDKForUser(req.username)
-
-		if (!sdk) {
-			await Responses.notAuthorized(res)
-
-			return
-		}
-
-		await sdk.fs().mkdir({ path: parentPath })
-
-		const parentResource = await this.server.pathToResource(req, parentPath)
-
-		if (!parentResource || parentResource.type !== "directory") {
-			await Responses.preconditionFailed(res)
-
-			return
-		}
-
-		if (!req.bodySize || !req.bodyStream || req.bodySize === 0) {
-			this.server.getVirtualFilesForUser(req.username)[path] = {
-				type: "file",
-				uuid: uuidv4(),
-				path: path,
-				url: path,
-				isDirectory() {
-					return false
-				},
-				isFile() {
-					return true
-				},
-				isSymbolicLink() {
-					return false
-				},
-				mtimeMs: Date.now(),
-				region: "",
-				bucket: "",
-				birthtimeMs: Date.now(),
-				key: "",
-				lastModified: Date.now(),
-				name,
-				mime: mimeTypes.lookup(name) || "application/octet-stream",
-				version: 2,
-				chunks: 1,
-				size: 0,
-				isVirtual: true
+				return
 			}
+
+			const sdk = this.server.getSDKForUser(req.username)
+
+			if (!sdk) {
+				await Responses.notAuthorized(res)
+
+				return
+			}
+
+			await sdk.fs().mkdir({ path: parentPath })
+
+			const parentResource = await this.server.pathToResource(req, parentPath)
+
+			if (!parentResource || parentResource.type !== "directory") {
+				await Responses.preconditionFailed(res)
+
+				return
+			}
+
+			if (!req.bodySize || !req.bodyStream || req.bodySize === 0) {
+				this.server.getVirtualFilesForUser(req.username)[path] = {
+					type: "file",
+					uuid: uuidv4(),
+					path: path,
+					url: path,
+					isDirectory() {
+						return false
+					},
+					isFile() {
+						return true
+					},
+					isSymbolicLink() {
+						return false
+					},
+					mtimeMs: Date.now(),
+					region: "",
+					bucket: "",
+					birthtimeMs: Date.now(),
+					key: "",
+					lastModified: Date.now(),
+					name,
+					mime: mimeTypes.lookup(name) || "application/octet-stream",
+					version: 2,
+					chunks: 1,
+					size: 0,
+					isVirtual: true
+				}
+
+				await Responses.created(res)
+
+				return
+			}
+
+			let didError = false
+
+			const item = await sdk.cloud().uploadLocalFileStream({
+				source: req.bodyStream,
+				parent: parentResource.uuid,
+				name,
+				onError: err => {
+					delete this.server.getVirtualFilesForUser(req.username)[path]
+
+					didError = true
+
+					next(err)
+				}
+			})
+
+			if (didError) {
+				return
+			}
+
+			delete this.server.getVirtualFilesForUser(req.username)[path]
+
+			if (item.type !== "file") {
+				await Responses.badRequest(res)
+
+				return
+			}
+
+			await sdk.fs()._removeItem({ path })
+			await sdk.fs()._addItem({
+				path,
+				item: {
+					type: "file",
+					uuid: item.uuid,
+					metadata: {
+						name,
+						size: item.size,
+						lastModified: item.lastModified,
+						creation: item.creation,
+						hash: item.hash,
+						key: item.key,
+						bucket: item.bucket,
+						region: item.region,
+						version: item.version,
+						chunks: item.chunks,
+						mime: item.mime
+					}
+				}
+			})
 
 			await Responses.created(res)
-
-			return
+		} catch {
+			Responses.internalError(res).catch(() => {})
 		}
-
-		let didError = false
-
-		const item = await sdk.cloud().uploadLocalFileStream({
-			source: req.bodyStream,
-			parent: parentResource.uuid,
-			name,
-			onError: err => {
-				delete this.server.getVirtualFilesForUser(req.username)[path]
-
-				didError = true
-
-				next(err)
-			}
-		})
-
-		if (didError) {
-			return
-		}
-
-		delete this.server.getVirtualFilesForUser(req.username)[path]
-
-		if (item.type !== "file") {
-			await Responses.badRequest(res)
-
-			return
-		}
-
-		await sdk.fs()._removeItem({ path })
-		await sdk.fs()._addItem({
-			path,
-			item: {
-				type: "file",
-				uuid: item.uuid,
-				metadata: {
-					name,
-					size: item.size,
-					lastModified: item.lastModified,
-					creation: item.creation,
-					hash: item.hash,
-					key: item.key,
-					bucket: item.bucket,
-					region: item.region,
-					version: item.version,
-					chunks: item.chunks,
-					mime: item.mime
-				}
-			}
-		})
-
-		await Responses.created(res)
 	}
 }
 

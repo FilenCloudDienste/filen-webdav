@@ -1,4 +1,4 @@
-import { type ErrorRequestHandler } from "express"
+import { type ErrorRequestHandler, type Request, type Response } from "express"
 
 /**
  * WebDAVError
@@ -32,12 +32,12 @@ export class WebDAVError extends Error {
 /**
  * Error handling middleware.
  *
- * @param {*} err
- * @param {*} req
- * @param {*} res
+ * @param {Error} err
+ * @param {Request} req
+ * @param {Response} res
  * @returns {void}
  */
-export const Errors: ErrorRequestHandler = (err, req, res): void => {
+export const Errors: ErrorRequestHandler = (err: Error, req: Request, res: Response): void => {
 	res.status(err instanceof WebDAVError ? err.code : 500)
 	res.set("Content-Length", "0")
 	res.end("Internal server error")

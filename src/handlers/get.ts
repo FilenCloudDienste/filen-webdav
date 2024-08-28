@@ -36,114 +36,118 @@ export class Get {
 	 * @returns {Promise<void>}
 	 */
 	public async handle(req: Request, res: Response, next: NextFunction): Promise<void> {
-		const resource = await this.server.urlToResource(req)
+		try {
+			const resource = await this.server.urlToResource(req)
 
-		if (!resource || resource.type === "directory") {
-			await Responses.notFound(res, req.url)
-
-			return
-		}
-
-		if (resource.isVirtual) {
-			res.status(200)
-			res.set("Content-Type", resource.mime)
-			res.set("Content-Length", "0")
-
-			Readable.from([]).pipe(res)
-
-			return
-		}
-
-		const sdk = this.server.getSDKForUser(req.username)
-
-		if (!sdk) {
-			await Responses.notAuthorized(res)
-
-			return
-		}
-
-		const mimeType = mimeTypes.lookup(resource.name) || "application/octet-stream"
-		const totalLength = resource.size
-		const range = req.headers.range || req.headers["content-range"]
-		let start = 0
-		let end = totalLength - 1
-
-		if (range) {
-			const parsedRange = parseByteRange(range, totalLength)
-
-			if (!parsedRange) {
-				await Responses.badRequest(res)
+			if (!resource || resource.type === "directory") {
+				await Responses.notFound(res, req.url)
 
 				return
 			}
 
-			start = parsedRange.start
-			end = parsedRange.end
+			if (resource.isVirtual) {
+				res.status(200)
+				res.set("Content-Type", resource.mime)
+				res.set("Content-Length", "0")
 
-			res.status(206)
-			res.set("Content-Range", `bytes ${start}-${end}/${totalLength}`)
-			res.set("Content-Length", (end - start + 1).toString())
-		} else {
-			res.status(200)
-			res.set("Content-Length", resource.size.toString())
-		}
+				Readable.from([]).pipe(res)
 
-		res.set("Content-Type", mimeType)
-		res.set("Accept-Ranges", "bytes")
-
-		const stream = sdk.cloud().downloadFileToReadableStream({
-			uuid: resource.uuid,
-			bucket: resource.bucket,
-			region: resource.region,
-			version: resource.version,
-			key: resource.key,
-			size: resource.size,
-			chunks: resource.chunks,
-			start,
-			end
-		})
-
-		const nodeStream = Readable.fromWeb(stream as unknown as ReadableStreamWebType<Buffer>)
-
-		const cleanup = () => {
-			try {
-				stream.cancel().catch(() => {})
-
-				if (!nodeStream.closed && !nodeStream.destroyed) {
-					nodeStream.destroy()
-				}
-			} catch {
-				// Noop
+				return
 			}
+
+			const sdk = this.server.getSDKForUser(req.username)
+
+			if (!sdk) {
+				await Responses.notAuthorized(res)
+
+				return
+			}
+
+			const mimeType = mimeTypes.lookup(resource.name) || "application/octet-stream"
+			const totalLength = resource.size
+			const range = req.headers.range || req.headers["content-range"]
+			let start = 0
+			let end = totalLength - 1
+
+			if (range) {
+				const parsedRange = parseByteRange(range, totalLength)
+
+				if (!parsedRange) {
+					await Responses.badRequest(res)
+
+					return
+				}
+
+				start = parsedRange.start
+				end = parsedRange.end
+
+				res.status(206)
+				res.set("Content-Range", `bytes ${start}-${end}/${totalLength}`)
+				res.set("Content-Length", (end - start + 1).toString())
+			} else {
+				res.status(200)
+				res.set("Content-Length", resource.size.toString())
+			}
+
+			res.set("Content-Type", mimeType)
+			res.set("Accept-Ranges", "bytes")
+
+			const stream = sdk.cloud().downloadFileToReadableStream({
+				uuid: resource.uuid,
+				bucket: resource.bucket,
+				region: resource.region,
+				version: resource.version,
+				key: resource.key,
+				size: resource.size,
+				chunks: resource.chunks,
+				start,
+				end
+			})
+
+			const nodeStream = Readable.fromWeb(stream as unknown as ReadableStreamWebType<Buffer>)
+
+			const cleanup = () => {
+				try {
+					stream.cancel().catch(() => {})
+
+					if (!nodeStream.closed && !nodeStream.destroyed) {
+						nodeStream.destroy()
+					}
+				} catch {
+					// Noop
+				}
+			}
+
+			res.once("close", () => {
+				cleanup()
+			})
+
+			res.once("error", () => {
+				cleanup()
+			})
+
+			res.once("finish", () => {
+				cleanup()
+			})
+
+			req.once("close", () => {
+				cleanup()
+			})
+
+			req.once("error", () => {
+				cleanup()
+			})
+
+			nodeStream.once("error", err => {
+				cleanup()
+
+				next(err)
+			})
+
+			nodeStream.pipe(res)
+		} catch {
+			Responses.internalError(res).catch(() => {})
 		}
-
-		res.once("close", () => {
-			cleanup()
-		})
-
-		res.once("error", () => {
-			cleanup()
-		})
-
-		res.once("finish", () => {
-			cleanup()
-		})
-
-		req.once("close", () => {
-			cleanup()
-		})
-
-		req.once("error", () => {
-			cleanup()
-		})
-
-		nodeStream.once("error", err => {
-			cleanup()
-
-			next(err)
-		})
-
-		nodeStream.pipe(res)
 	}
 }
 

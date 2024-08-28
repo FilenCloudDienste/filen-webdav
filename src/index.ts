@@ -1,5 +1,4 @@
 import express, { type Express, type Request } from "express"
-import asyncHandler from "express-async-handler"
 import Head from "./handlers/head"
 import FilenSDK, { type FSStats, type FilenSDKConfig } from "@filen/sdk"
 import Get from "./handlers/get"
@@ -313,7 +312,7 @@ export class WebDAVServer {
 	public async start(): Promise<void> {
 		this.server.disable("x-powered-by")
 
-		this.server.use(asyncHandler(new Auth(this).handle))
+		this.server.use(new Auth(this).handle)
 
 		this.server.use((_, res, next) => {
 			res.set("Allow", "OPTIONS, GET, HEAD, PUT, DELETE, PROPFIND, PROPPATCH, MKCOL, COPY, MOVE")
@@ -340,19 +339,19 @@ export class WebDAVServer {
 			bodyParser.text({ type: ["application/xml", "text/xml"] })(req, res, next)
 		})
 
-		this.server.head("*", asyncHandler(new Head(this).handle))
-		this.server.get("*", asyncHandler(new Get(this).handle))
-		this.server.options("*", asyncHandler(new Options().handle))
-		this.server.propfind("*", asyncHandler(new Propfind(this).handle))
-		this.server.put("*", asyncHandler(new Put(this).handle))
-		this.server.post("*", asyncHandler(new Put(this).handle))
-		this.server.mkcol("*", asyncHandler(new Mkcol(this).handle))
-		this.server.delete("*", asyncHandler(new Delete(this).handle))
-		this.server.copy("*", asyncHandler(new Copy(this).handle))
-		this.server.lock("*", asyncHandler(new Lock().handle))
-		this.server.unlock("*", asyncHandler(new Unlock().handle))
-		this.server.proppatch("*", asyncHandler(new Proppatch().handle))
-		this.server.move("*", asyncHandler(new Move(this).handle))
+		this.server.head("*", new Head(this).handle)
+		this.server.get("*", new Get(this).handle)
+		this.server.options("*", new Options().handle)
+		this.server.propfind("*", new Propfind(this).handle)
+		this.server.put("*", new Put(this).handle)
+		this.server.post("*", new Put(this).handle)
+		this.server.mkcol("*", new Mkcol(this).handle)
+		this.server.delete("*", new Delete(this).handle)
+		this.server.copy("*", new Copy(this).handle)
+		this.server.lock("*", new Lock().handle)
+		this.server.unlock("*", new Unlock().handle)
+		this.server.proppatch("*", new Proppatch().handle)
+		this.server.move("*", new Move(this).handle)
 
 		this.server.use(Errors)
 

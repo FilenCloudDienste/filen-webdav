@@ -19,7 +19,11 @@ export class Proppatch {
 	 * @returns {Promise<void>}
 	 */
 	public async handle(req: Request, res: Response): Promise<void> {
-		await Responses.proppatch(res, req.url)
+		try {
+			await Responses.proppatch(res, req.url)
+		} catch {
+			Responses.internalError(res).catch(() => {})
+		}
 	}
 }
 

@@ -56,7 +56,6 @@
 		"body-parser": "^1.20.2",
 		"dayjs": "^1.11.11",
 		"express": "^4.19.2",
-		"express-async-handler": "^1.2.0",
 		"fs-extra": "^11.2.0",
 		"mime-types": "^2.1.35",
 		"node-cache": "^5.1.2",

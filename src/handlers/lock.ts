@@ -19,7 +19,11 @@ export class Lock {
 	 * @returns {Promise<void>}
 	 */
 	public async handle(_: Request, res: Response): Promise<void> {
-		await Responses.notImplemented(res)
+		try {
+			await Responses.notImplemented(res)
+		} catch {
+			Responses.internalError(res).catch(() => {})
+		}
 	}
 }
 
