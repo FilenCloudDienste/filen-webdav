@@ -22,6 +22,9 @@ import Certs from "./certs"
 import body from "./middlewares/body"
 import NodeCache from "node-cache"
 import http, { type IncomingMessage, type ServerResponse } from "http"
+import { type Socket } from "net"
+import { v4 as uuidv4 } from "uuid"
+import { type Duplex } from "stream"
 
 export type ServerConfig = {
 	hostname: string
@@ -65,6 +68,7 @@ export class WebDAVServer {
 		| https.Server<typeof IncomingMessage, typeof ServerResponse>
 		| http.Server<typeof IncomingMessage, typeof ServerResponse>
 		| null = null
+	public connections: Record<string, Socket | Duplex> = {}
 
 	/**
 	 * Creates an instance of WebDAVServer.
@@ -310,6 +314,8 @@ export class WebDAVServer {
 	 * @returns {Promise<void>}
 	 */
 	public async start(): Promise<void> {
+		this.connections = {}
+
 		this.server.disable("x-powered-by")
 
 		this.server.use(new Auth(this).handle)
@@ -370,12 +376,32 @@ export class WebDAVServer {
 							.listen(this.serverConfig.port, this.serverConfig.hostname, () => {
 								resolve()
 							})
+							.on("connection", socket => {
+								const socketId = uuidv4()
+
+								this.connections[socketId] = socket
+
+								socket.once("close", () => {
+									delete this.connections[socketId]
+								})
+							})
 					})
 					.catch(reject)
 			} else {
-				this.serverInstance = http.createServer(this.server).listen(this.serverConfig.port, this.serverConfig.hostname, () => {
-					resolve()
-				})
+				this.serverInstance = http
+					.createServer(this.server)
+					.listen(this.serverConfig.port, this.serverConfig.hostname, () => {
+						resolve()
+					})
+					.on("connection", socket => {
+						const socketId = uuidv4()
+
+						this.connections[socketId] = socket
+
+						socket.once("close", () => {
+							delete this.connections[socketId]
+						})
+					})
 			}
 		})
 	}
@@ -385,9 +411,10 @@ export class WebDAVServer {
 	 *
 	 * @public
 	 * @async
+	 * @param {boolean} [terminate=false]
 	 * @returns {Promise<void>}
 	 */
-	public async stop(): Promise<void> {
+	public async stop(terminate: boolean = false): Promise<void> {
 		await new Promise<void>((resolve, reject) => {
 			if (!this.serverInstance) {
 				resolve()
@@ -404,6 +431,18 @@ export class WebDAVServer {
 
 				resolve()
 			})
+
+			if (terminate) {
+				for (const socketId in this.connections) {
+					try {
+						this.connections[socketId]?.destroy()
+
+						delete this.connections[socketId]
+					} catch {
+						// Noop
+					}
+				}
+			}
 		})
 	}
 }
