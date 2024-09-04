@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from "uuid"
 import mimeTypes from "mime-types"
 import { removeLastSlash } from "../utils"
 import Responses from "../responses"
+import { PassThrough } from "stream"
 
 /**
  * Put
@@ -66,7 +67,7 @@ export class Put {
 				return
 			}
 
-			if (!req.bodySize || !req.bodyStream || req.bodySize === 0) {
+			if (!req.firstBodyChunk || req.firstBodyChunk.byteLength === 0) {
 				this.server.getVirtualFilesForUser(req.username)[path] = {
 					type: "file",
 					uuid: uuidv4(),
@@ -101,9 +102,30 @@ export class Put {
 			}
 
 			let didError = false
+			const stream = new PassThrough()
+
+			await new Promise<void>((resolve, reject) => {
+				stream.write(req.firstBodyChunk, err => {
+					if (err) {
+						reject(err)
+
+						return
+					}
+
+					resolve()
+				})
+			})
+
+			stream.on("error", () => {
+				delete this.server.getVirtualFilesForUser(req.username)[path]
+
+				didError = true
+
+				Responses.internalError(res).catch(() => {})
+			})
 
 			const item = await sdk.cloud().uploadLocalFileStream({
-				source: req.bodyStream,
+				source: req.pipe(stream),
 				parent: parentResource.uuid,
 				name,
 				onError: () => {

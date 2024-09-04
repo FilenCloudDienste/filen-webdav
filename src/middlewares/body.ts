@@ -1,29 +1,24 @@
 import { type Request, type Response, type NextFunction } from "express"
-import { PassThrough } from "stream"
+import Responses from "../responses"
 
-export default function body(req: Request, _: Response, next: NextFunction): void {
-	const passThrough = new PassThrough()
-	let size = 0
-
-	req.bodyStream = passThrough
-
-	req.on("data", chunk => {
-		if (chunk instanceof Buffer) {
-			size += chunk.byteLength
-
-			passThrough.write(chunk)
-		}
-	})
-
-	req.on("end", () => {
-		req.bodySize = size
-
-		passThrough.end()
-
+export default function body(req: Request, res: Response, next: NextFunction): void {
+	if (!["POST", "PUT"].includes(req.method)) {
 		next()
-	})
 
-	req.on("error", err => {
-		passThrough.emit("error", err)
+		return
+	}
+
+	req.once("readable", () => {
+		try {
+			const chunk = req.read(1)
+
+			req.firstBodyChunk = chunk instanceof Buffer ? chunk : null
+
+			req.resume()
+
+			next()
+		} catch {
+			Responses.internalError(res).catch(() => {})
+		}
 	})
 }
