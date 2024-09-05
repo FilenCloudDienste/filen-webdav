@@ -20,6 +20,10 @@ export class Responses {
 	})
 
 	public static async propfind(res: Response, resources: Resource[], quota: { used: number; available: number }): Promise<void> {
+		if (res.headersSent) {
+			return
+		}
+
 		const response = this.xmlBuilder.buildObject({
 			"D:multistatus": {
 				$: {
@@ -67,6 +71,10 @@ export class Responses {
 	}
 
 	public static async proppatch(res: Response, url: string): Promise<void> {
+		if (res.headersSent) {
+			return
+		}
+
 		const response = this.xmlBuilder.buildObject({
 			"D:multistatus": {
 				$: {
@@ -94,6 +102,10 @@ export class Responses {
 	}
 
 	public static async notFound(res: Response, url: string): Promise<void> {
+		if (res.headersSent) {
+			return
+		}
+
 		const response = this.xmlBuilder.buildObject({
 			"D:multistatus": {
 				$: {
@@ -121,6 +133,10 @@ export class Responses {
 	}
 
 	public static async badRequest(res: Response): Promise<void> {
+		if (res.headersSent) {
+			return
+		}
+
 		res.set("Content-Length", "0")
 		res.status(400)
 
@@ -132,6 +148,10 @@ export class Responses {
 	}
 
 	public static async alreadyExists(res: Response): Promise<void> {
+		if (res.headersSent) {
+			return
+		}
+
 		res.set("Content-Length", "0")
 		res.status(403)
 
@@ -143,6 +163,10 @@ export class Responses {
 	}
 
 	public static async created(res: Response): Promise<void> {
+		if (res.headersSent) {
+			return
+		}
+
 		res.set("Content-Length", "0")
 		res.status(201)
 
@@ -154,6 +178,10 @@ export class Responses {
 	}
 
 	public static async ok(res: Response): Promise<void> {
+		if (res.headersSent) {
+			return
+		}
+
 		res.set("Content-Length", "0")
 		res.status(200)
 
@@ -165,6 +193,10 @@ export class Responses {
 	}
 
 	public static async noContent(res: Response): Promise<void> {
+		if (res.headersSent) {
+			return
+		}
+
 		res.set("Content-Length", "0")
 		res.status(204)
 
@@ -176,6 +208,10 @@ export class Responses {
 	}
 
 	public static async notImplemented(res: Response): Promise<void> {
+		if (res.headersSent) {
+			return
+		}
+
 		res.set("Content-Length", "0")
 		res.status(501)
 
@@ -187,6 +223,10 @@ export class Responses {
 	}
 
 	public static async forbidden(res: Response): Promise<void> {
+		if (res.headersSent) {
+			return
+		}
+
 		res.set("Content-Length", "0")
 		res.status(403)
 
@@ -198,6 +238,10 @@ export class Responses {
 	}
 
 	public static async internalError(res: Response): Promise<void> {
+		if (res.headersSent) {
+			return
+		}
+
 		res.set("Content-Length", "0")
 		res.status(500)
 
@@ -209,6 +253,10 @@ export class Responses {
 	}
 
 	public static async notAuthorized(res: Response): Promise<void> {
+		if (res.headersSent) {
+			return
+		}
+
 		res.set("Content-Length", "0")
 		res.status(401)
 
@@ -220,6 +268,10 @@ export class Responses {
 	}
 
 	public static async preconditionFailed(res: Response): Promise<void> {
+		if (res.headersSent) {
+			return
+		}
+
 		res.set("Content-Length", "0")
 		res.status(412)
 

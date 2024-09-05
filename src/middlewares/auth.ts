@@ -7,6 +7,24 @@ import crypto from "crypto"
 export const REALM = "Default realm"
 export const BASIC_AUTH_HEADER = `Basic realm="${REALM}", charset="UTF-8"`
 
+export function parseDigestAuthHeader(header: string): Record<string, string> {
+	const params: Record<string, string> = {}
+
+	header.split(",").forEach(param => {
+		let [key, value] = param.split("=")
+
+		if (key && value) {
+			key = key.split(" ").join("")
+			value = value.split(" ").join("")
+
+			// eslint-disable-next-line quotes
+			params[key] = value.split('"').join("")
+		}
+	})
+
+	return params
+}
+
 /**
  * Auth
  *
@@ -51,31 +69,6 @@ export class Auth {
 		}
 
 		return `Basic realm="${REALM}", charset="UTF-8"`
-	}
-
-	/**
-	 * Parses the digest authorization header parameters.
-	 *
-	 * @public
-	 * @param {string} header
-	 * @returns {Record<string, string>}
-	 */
-	public parseDigestAuthHeader(header: string): Record<string, string> {
-		const params: Record<string, string> = {}
-
-		header.split(",").forEach(param => {
-			let [key, value] = param.split("=")
-
-			if (key && value) {
-				key = key.split(" ").join("")
-				value = value.split(" ").join("")
-
-				// eslint-disable-next-line quotes
-				params[key] = value.split('"').join("")
-			}
-		})
-
-		return params
 	}
 
 	/**
@@ -244,7 +237,7 @@ export class Auth {
 			throw new Error("No authorization header provided.")
 		}
 
-		const authParams = this.parseDigestAuthHeader(authHeader.slice(7))
+		const authParams = parseDigestAuthHeader(authHeader.slice(7))
 		const username = authParams.username
 
 		if (!username || !authParams.response) {

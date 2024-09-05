@@ -12,7 +12,7 @@ import Delete from "./handlers/delete"
 import Copy from "./handlers/copy"
 import Proppatch from "./handlers/proppatch"
 import Move from "./handlers/move"
-import Auth from "./middlewares/auth"
+import Auth, { parseDigestAuthHeader } from "./middlewares/auth"
 import { removeLastSlash } from "./utils"
 import Lock from "./handlers/lock"
 import Unlock from "./handlers/unlock"
@@ -25,6 +25,7 @@ import http, { type IncomingMessage, type ServerResponse } from "http"
 import { type Socket } from "net"
 import { v4 as uuidv4 } from "uuid"
 import { type Duplex } from "stream"
+import { rateLimit } from "express-rate-limit"
 
 export type ServerConfig = {
 	hostname: string
@@ -44,6 +45,12 @@ export type User = {
 }
 
 export type AuthMode = "basic" | "digest"
+
+export type RateLimit = {
+	windowMs: number
+	limit: number
+	key: "ip" | "username"
+}
 
 /**
  * WebDAVServer
@@ -69,6 +76,7 @@ export class WebDAVServer {
 		| http.Server<typeof IncomingMessage, typeof ServerResponse>
 		| null = null
 	public connections: Record<string, Socket | Duplex> = {}
+	public rateLimit: RateLimit
 
 	/**
 	 * Creates an instance of WebDAVServer.
@@ -81,23 +89,35 @@ export class WebDAVServer {
 	 * 		authMode?: "basic" | "digest"
 	 * 		https?: boolean
 	 * 		user?: {
-	 * 			sdkConfig: FilenSDKConfig
+	 * 			sdkConfig?: FilenSDKConfig
+	 * 			sdk?: FilenSDK
 	 * 			username: string
 	 * 			password: string
 	 * 		}
+	 * 		rateLimit?: RateLimit
 	 * 	}} param0
 	 * @param {string} [param0.hostname="127.0.0.1"]
 	 * @param {number} [param0.port=1900]
-	 * @param {{ sdkConfig: FilenSDKConfig; username: string; password: string; }} param0.user
+	 * @param {{ sdkConfig?: FilenSDKConfig; sdk?: FilenSDK; username: string; password: string; }} param0.user
 	 * @param {("basic" | "digest")} [param0.authMode="basic"]
 	 * @param {boolean} [param0.https=false]
+	 * @param {RateLimit} [param0.rateLimit={
+	 * 			windowMs: 1000,
+	 * 			limit: 1000,
+	 * 			key: "username"
+	 * 		}]
 	 */
 	public constructor({
 		hostname = "127.0.0.1",
 		port = 1900,
 		user,
 		authMode = "basic",
-		https = false
+		https = false,
+		rateLimit = {
+			windowMs: 1000,
+			limit: 1000,
+			key: "username"
+		}
 	}: {
 		hostname?: string
 		port?: number
@@ -109,9 +129,11 @@ export class WebDAVServer {
 			username: string
 			password: string
 		}
+		rateLimit?: RateLimit
 	}) {
 		this.enableHTTPS = https
 		this.authMode = authMode
+		this.rateLimit = rateLimit
 		this.serverConfig = {
 			hostname,
 			port
@@ -317,6 +339,58 @@ export class WebDAVServer {
 		this.connections = {}
 
 		this.server.disable("x-powered-by")
+
+		this.server.use(
+			rateLimit({
+				windowMs: this.rateLimit.windowMs,
+				limit: this.rateLimit.limit,
+				standardHeaders: "draft-7",
+				legacyHeaders: true,
+				keyGenerator: req => {
+					if (this.rateLimit.key === "ip") {
+						return req.ip ?? "ip"
+					}
+
+					if (this.authMode === "digest") {
+						const authHeader = req.headers["authorization"]
+
+						if (!authHeader || !authHeader.startsWith("Digest ")) {
+							return req.ip ?? "ip"
+						}
+
+						const authParams = parseDigestAuthHeader(authHeader.slice(7))
+						const username = authParams.username
+
+						if (!username || !authParams.response) {
+							return req.ip ?? "ip"
+						}
+
+						return username
+					} else {
+						const authHeader = req.headers["authorization"]
+
+						if (!authHeader || !authHeader.startsWith("Basic ")) {
+							return req.ip ?? "ip"
+						}
+
+						const base64Credentials = authHeader.split(" ")[1]
+
+						if (!base64Credentials) {
+							return req.ip ?? "ip"
+						}
+
+						const credentials = Buffer.from(base64Credentials, "base64").toString("utf-8")
+						const [username, password] = credentials.split(":")
+
+						if (!username || !password) {
+							return req.ip ?? "ip"
+						}
+
+						return username
+					}
+				}
+			})
+		)
 
 		this.server.use(new Auth(this).handle)
 
