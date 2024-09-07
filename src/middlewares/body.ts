@@ -14,8 +14,6 @@ export default function body(req: Request, res: Response, next: NextFunction): v
 
 			req.firstBodyChunk = chunk instanceof Buffer ? chunk : null
 
-			req.resume()
-
 			next()
 		} catch {
 			Responses.internalError(res).catch(() => {})
