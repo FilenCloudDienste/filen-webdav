@@ -57,16 +57,11 @@ const server = new WebDAVServer({
 	authMode: "basic" | "digest"
 })
 
-server
-	.start()
-	.then(() =>
-		console.log(
-			`WebDAV server started on ${https ? "https" : "http"}://${
-				hostname === "127.0.0.1" ? "local.webdav.filen.io" : hostname
-			}:${port}`
-		)
-	)
-	.catch(console.error)
+await server.start()
+
+console.log(
+	`WebDAV server started on ${https ? "https" : "http"}://${hostname === "127.0.0.1" ? "local.webdav.filen.io" : hostname}:${port}`
+)
 ```
 
 3. Initialize the server (proxy mode)
@@ -98,19 +93,60 @@ const server = new WebDAVServer({
 	authMode: "basic" // Only basic auth is supported in proxy mode
 })
 
-server
-	.start()
-	.then(() =>
-		console.log(
-			`WebDAV server started on ${https ? "https" : "http"}://${
-				hostname === "127.0.0.1" ? "local.webdav.filen.io" : hostname
-			}:${port}`
-		)
-	)
-	.catch(console.error)
+await server.start()
+
+console.log(
+	`WebDAV server started on ${https ? "https" : "http"}://${hostname === "127.0.0.1" ? "local.webdav.filen.io" : hostname}:${port}`
+)
 ```
 
-4. Access the server
+4. Initialize the server (cluster mode)
+
+```typescript
+import FilenSDK from "@filen/sdk"
+import path from "path"
+import os from "os"
+import { WebDAVServerCluster } from "@filen/webdav"
+
+// Initialize a SDK instance (optional)
+const filen = new FilenSDK({
+	metadataCache: true,
+	connectToSocket: true,
+	tmpPath: path.join(os.tmpdir(), "filen-sdk")
+})
+
+await filen.login({
+	email: "your@email.com",
+	password: "supersecret123",
+	twoFactorCode: "123456"
+})
+
+const hostname = "127.0.0.1"
+const port = 1900
+const https = false
+const server = new WebDAVServerCluster({
+	hostname,
+	port,
+	https,
+	user: {
+		username: "admin",
+		password: "admin",
+		sdk: filen
+	},
+	authMode: "basic" | "digest",
+	threads: 16 // Number of threads to spawn. Defaults to CPU core count if omitted.
+})
+
+await server.start()
+
+console.log(
+	`WebDAV server cluster started on ${https ? "https" : "http"}://${
+		hostname === "127.0.0.1" ? "local.webdav.filen.io" : hostname
+	}:${port}`
+)
+```
+
+5. Access the server
 
 ```sh
 // MacOS

@@ -27,6 +27,8 @@ import { v4 as uuidv4 } from "uuid"
 import { type Duplex } from "stream"
 import { rateLimit } from "express-rate-limit"
 import Logger from "./logger"
+import cluster from "cluster"
+import os from "os"
 
 export type ServerConfig = {
 	hostname: string
@@ -525,6 +527,255 @@ export class WebDAVServer {
 				}
 			}
 		})
+	}
+}
+
+/**
+ * WebDAVServerCluster
+ *
+ * @export
+ * @class WebDAVServerCluster
+ * @typedef {WebDAVServerCluster}
+ */
+export class WebDAVServerCluster {
+	private enableHTTPS: boolean
+	private authMode: AuthMode
+	private rateLimit: RateLimit
+	private serverConfig: ServerConfig
+	private proxyMode: boolean
+	private user:
+		| {
+				sdkConfig?: FilenSDKConfig
+				sdk?: FilenSDK
+				username: string
+				password: string
+		  }
+		| undefined
+	private threads: number
+	private workers: Record<
+		number,
+		{
+			worker: ReturnType<typeof cluster.fork>
+			ready: boolean
+		}
+	> = {}
+	private stopSpawning: boolean = false
+
+	/**
+	 * Creates an instance of WebDAVServerCluster.
+	 *
+	 * @constructor
+	 * @public
+	 * @param {{
+	 * 		hostname?: string
+	 * 		port?: number
+	 * 		authMode?: "basic" | "digest"
+	 * 		https?: boolean
+	 * 		user?: {
+	 * 			sdkConfig?: FilenSDKConfig
+	 * 			sdk?: FilenSDK
+	 * 			username: string
+	 * 			password: string
+	 * 		}
+	 * 		rateLimit?: RateLimit
+	 * 		disableLogging?: boolean
+	 * 		threads?: number
+	 * 	}} param0
+	 * @param {string} [param0.hostname="127.0.0.1"]
+	 * @param {number} [param0.port=1900]
+	 * @param {{ sdkConfig?: FilenSDKConfig; sdk?: FilenSDK; username: string; password: string; }} param0.user
+	 * @param {("basic" | "digest")} [param0.authMode="basic"]
+	 * @param {boolean} [param0.https=false]
+	 * @param {RateLimit} [param0.rateLimit={
+	 * 			windowMs: 1000,
+	 * 			limit: 1000,
+	 * 			key: "username"
+	 * 		}]
+	 * @param {number} param0.threads
+	 */
+	public constructor({
+		hostname = "127.0.0.1",
+		port = 1900,
+		user,
+		authMode = "basic",
+		https = false,
+		rateLimit = {
+			windowMs: 1000,
+			limit: 1000,
+			key: "username"
+		},
+		threads
+	}: {
+		hostname?: string
+		port?: number
+		authMode?: "basic" | "digest"
+		https?: boolean
+		user?: {
+			sdkConfig?: FilenSDKConfig
+			sdk?: FilenSDK
+			username: string
+			password: string
+		}
+		rateLimit?: RateLimit
+		disableLogging?: boolean
+		threads?: number
+	}) {
+		this.enableHTTPS = https
+		this.authMode = authMode
+		this.rateLimit = rateLimit
+		this.serverConfig = {
+			hostname,
+			port
+		}
+		this.proxyMode = typeof user === "undefined"
+		this.threads = typeof threads === "number" ? threads : os.cpus().length
+		this.user = user
+
+		if (this.proxyMode && this.authMode === "digest") {
+			throw new Error("Digest authentication is not supported in proxy mode.")
+		}
+
+		if (this.user) {
+			if (!this.user.sdk && !this.user.sdkConfig) {
+				throw new Error("Either pass a configured SDK instance OR a SDKConfig object to the user object.")
+			}
+
+			if (this.user.username.length === 0 || this.user.password.length === 0) {
+				throw new Error("Username or password empty.")
+			}
+		}
+	}
+
+	/**
+	 * Spawn a worker.
+	 *
+	 * @private
+	 */
+	private spawnWorker(): void {
+		if (this.stopSpawning) {
+			return
+		}
+
+		const worker = cluster.fork()
+
+		this.workers[worker.id] = {
+			worker,
+			ready: false
+		}
+	}
+
+	/**
+	 * Fork all needed threads.
+	 *
+	 * @private
+	 * @async
+	 * @returns {Promise<"master" | "worker">}
+	 */
+	private async startCluster(): Promise<"master" | "worker"> {
+		if (cluster.isPrimary) {
+			return await new Promise<"master" | "worker">((resolve, reject) => {
+				try {
+					let workersReady = 0
+
+					for (let i = 0; i < this.threads; i++) {
+						this.spawnWorker()
+					}
+
+					cluster.on("exit", async worker => {
+						workersReady--
+
+						delete this.workers[worker.id]
+
+						await new Promise<void>(resolve => setTimeout(resolve, 1000))
+
+						try {
+							this.spawnWorker()
+						} catch {
+							// Noop
+						}
+					})
+
+					const errorTimeout = setTimeout(() => {
+						reject(new Error("Could not spawn all workers."))
+					}, 15000)
+
+					cluster.on("message", (worker, message) => {
+						if (message === "ready" && this.workers[worker.id]) {
+							workersReady++
+
+							this.workers[worker.id]!.ready = true
+
+							if (workersReady >= this.threads) {
+								clearTimeout(errorTimeout)
+
+								resolve("master")
+							}
+						}
+					})
+				} catch (e) {
+					reject(e)
+				}
+			})
+		}
+
+		const server = new WebDAVServer({
+			hostname: this.serverConfig.hostname,
+			port: this.serverConfig.port,
+			authMode: this.authMode,
+			disableLogging: true,
+			user: this.user,
+			rateLimit: this.rateLimit,
+			https: this.enableHTTPS
+		})
+
+		await server.start()
+
+		if (process.send) {
+			process.send("ready")
+		}
+
+		return "worker"
+	}
+
+	/**
+	 * Start the WebDAV cluster.
+	 *
+	 * @public
+	 * @async
+	 * @returns {Promise<void>}
+	 */
+	public async start(): Promise<void> {
+		await new Promise<void>((resolve, reject) => {
+			this.startCluster()
+				.then(type => {
+					if (type === "master") {
+						resolve()
+					}
+				})
+				.catch(reject)
+		})
+	}
+
+	/**
+	 * Stop the WebDAV cluster.
+	 *
+	 * @public
+	 * @async
+	 * @returns {Promise<void>}
+	 */
+	public async stop(): Promise<void> {
+		cluster.removeAllListeners()
+
+		this.stopSpawning = true
+
+		for (const id in this.workers) {
+			this.workers[id]!.worker.destroy()
+		}
+
+		await new Promise<void>(resolve => setTimeout(resolve, 1000))
+
+		this.workers = {}
+		this.stopSpawning = false
 	}
 }
 
