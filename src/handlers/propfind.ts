@@ -116,7 +116,10 @@ export class Propfind {
 					used: statfs.used * 1
 				}
 			)
-		} catch {
+		} catch (e) {
+			this.server.logger.log("error", e, "propfind")
+			this.server.logger.log("error", e)
+
 			Responses.internalError(res).catch(() => {})
 		}
 	}

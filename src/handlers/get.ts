@@ -142,7 +142,10 @@ export class Get {
 			})
 
 			nodeStream.pipe(res)
-		} catch {
+		} catch (e) {
+			this.server.logger.log("error", e, "get")
+			this.server.logger.log("error", e)
+
 			Responses.internalError(res).catch(() => {})
 		}
 	}

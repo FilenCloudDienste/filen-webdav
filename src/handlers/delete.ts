@@ -62,7 +62,10 @@ export class Delete {
 			})
 
 			await Responses.ok(res)
-		} catch {
+		} catch (e) {
+			this.server.logger.log("error", e, "delete")
+			this.server.logger.log("error", e)
+
 			Responses.internalError(res).catch(() => {})
 		}
 	}

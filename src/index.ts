@@ -26,6 +26,7 @@ import { type Socket } from "net"
 import { v4 as uuidv4 } from "uuid"
 import { type Duplex } from "stream"
 import { rateLimit } from "express-rate-limit"
+import Logger from "./logger"
 
 export type ServerConfig = {
 	hostname: string
@@ -77,6 +78,7 @@ export class WebDAVServer {
 		| null = null
 	public connections: Record<string, Socket | Duplex> = {}
 	public rateLimit: RateLimit
+	public logger: Logger
 
 	/**
 	 * Creates an instance of WebDAVServer.
@@ -95,6 +97,7 @@ export class WebDAVServer {
 	 * 			password: string
 	 * 		}
 	 * 		rateLimit?: RateLimit
+	 * 		disableLogging?: boolean
 	 * 	}} param0
 	 * @param {string} [param0.hostname="127.0.0.1"]
 	 * @param {number} [param0.port=1900]
@@ -106,6 +109,7 @@ export class WebDAVServer {
 	 * 			limit: 1000,
 	 * 			key: "username"
 	 * 		}]
+	 * @param {boolean} [param0.disableLogging=false]
 	 */
 	public constructor({
 		hostname = "127.0.0.1",
@@ -117,7 +121,8 @@ export class WebDAVServer {
 			windowMs: 1000,
 			limit: 1000,
 			key: "username"
-		}
+		},
+		disableLogging = false
 	}: {
 		hostname?: string
 		port?: number
@@ -130,6 +135,7 @@ export class WebDAVServer {
 			password: string
 		}
 		rateLimit?: RateLimit
+		disableLogging?: boolean
 	}) {
 		this.enableHTTPS = https
 		this.authMode = authMode
@@ -140,6 +146,7 @@ export class WebDAVServer {
 		}
 		this.proxyMode = typeof user === "undefined"
 		this.server = express()
+		this.logger = new Logger(disableLogging, false)
 
 		if (this.proxyMode && this.authMode === "digest") {
 			throw new Error("Digest authentication is not supported in proxy mode.")
@@ -421,16 +428,16 @@ export class WebDAVServer {
 
 		this.server.head("*", new Head(this).handle)
 		this.server.get("*", new Get(this).handle)
-		this.server.options("*", new Options().handle)
+		this.server.options("*", new Options(this).handle)
 		this.server.propfind("*", new Propfind(this).handle)
 		this.server.put("*", new Put(this).handle)
 		this.server.post("*", new Put(this).handle)
 		this.server.mkcol("*", new Mkcol(this).handle)
 		this.server.delete("*", new Delete(this).handle)
 		this.server.copy("*", new Copy(this).handle)
-		this.server.lock("*", new Lock().handle)
-		this.server.unlock("*", new Unlock().handle)
-		this.server.proppatch("*", new Proppatch().handle)
+		this.server.lock("*", new Lock(this).handle)
+		this.server.unlock("*", new Unlock(this).handle)
+		this.server.proppatch("*", new Proppatch(this).handle)
 		this.server.move("*", new Move(this).handle)
 
 		this.server.use(Errors)

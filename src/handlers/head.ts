@@ -82,7 +82,10 @@ export class Head {
 					resolve()
 				})
 			})
-		} catch {
+		} catch (e) {
+			this.server.logger.log("error", e, "head")
+			this.server.logger.log("error", e)
+
 			Responses.internalError(res).catch(() => {})
 		}
 	}

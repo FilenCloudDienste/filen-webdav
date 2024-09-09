@@ -1,5 +1,6 @@
 import { type Request, type Response } from "express"
 import Responses from "../responses"
+import type Server from ".."
 
 /**
  * Options
@@ -9,6 +10,17 @@ import Responses from "../responses"
  * @typedef {Options}
  */
 export class Options {
+	/**
+	 * Creates an instance of Options.
+	 *
+	 * @constructor
+	 * @public
+	 * @param {Server} server
+	 */
+	public constructor(private readonly server: Server) {
+		this.handle = this.handle.bind(this)
+	}
+
 	/**
 	 * Options
 	 *
@@ -21,7 +33,10 @@ export class Options {
 	public async handle(_: Request, res: Response): Promise<void> {
 		try {
 			await Responses.ok(res)
-		} catch {
+		} catch (e) {
+			this.server.logger.log("error", e, "options")
+			this.server.logger.log("error", e)
+
 			Responses.internalError(res).catch(() => {})
 		}
 	}

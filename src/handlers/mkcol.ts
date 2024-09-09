@@ -55,7 +55,10 @@ export class Mkcol {
 			await sdk.fs().mkdir({ path })
 
 			await Responses.created(res)
-		} catch {
+		} catch (e) {
+			this.server.logger.log("error", e, "mkcol")
+			this.server.logger.log("error", e)
+
 			Responses.internalError(res).catch(() => {})
 		}
 	}

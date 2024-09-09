@@ -1,5 +1,6 @@
 import { type Request, type Response } from "express"
 import Responses from "../responses"
+import type Server from ".."
 
 /**
  * Unlock
@@ -9,6 +10,17 @@ import Responses from "../responses"
  * @typedef {Unlock}
  */
 export class Unlock {
+	/**
+	 * Creates an instance of Unlock.
+	 *
+	 * @constructor
+	 * @public
+	 * @param {Server} server
+	 */
+	public constructor(private readonly server: Server) {
+		this.handle = this.handle.bind(this)
+	}
+
 	/**
 	 * Handle unlocking. Not implemented (needed) right now.
 	 *
@@ -21,7 +33,10 @@ export class Unlock {
 	public async handle(_: Request, res: Response): Promise<void> {
 		try {
 			await Responses.notImplemented(res)
-		} catch {
+		} catch (e) {
+			this.server.logger.log("error", e, "unlock")
+			this.server.logger.log("error", e)
+
 			Responses.internalError(res).catch(() => {})
 		}
 	}

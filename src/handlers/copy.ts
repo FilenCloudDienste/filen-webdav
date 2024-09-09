@@ -155,7 +155,10 @@ export class Copy {
 			})
 
 			await Responses.created(res)
-		} catch {
+		} catch (e) {
+			this.server.logger.log("error", e, "copy")
+			this.server.logger.log("error", e)
+
 			Responses.internalError(res).catch(() => {})
 		}
 	}

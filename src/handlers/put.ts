@@ -172,7 +172,10 @@ export class Put {
 			})
 
 			await Responses.created(res)
-		} catch {
+		} catch (e) {
+			this.server.logger.log("error", e, "put")
+			this.server.logger.log("error", e)
+
 			Responses.internalError(res).catch(() => {})
 		}
 	}

@@ -159,7 +159,10 @@ export class Move {
 			})
 
 			await Responses.created(res)
-		} catch {
+		} catch (e) {
+			this.server.logger.log("error", e, "move")
+			this.server.logger.log("error", e)
+
 			Responses.internalError(res).catch(() => {})
 		}
 	}
