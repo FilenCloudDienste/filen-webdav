@@ -281,7 +281,10 @@ export class Auth {
 				.then(() => {
 					next()
 				})
-				.catch(() => {
+				.catch(err => {
+					this.server.logger.log("error", err, "auth.digest")
+					this.server.logger.log("error", err)
+
 					res.set("WWW-Authenticate", this.authHeader())
 					res.status(401).end("Unauthorized")
 				})
@@ -290,7 +293,10 @@ export class Auth {
 				.then(() => {
 					next()
 				})
-				.catch(() => {
+				.catch(err => {
+					this.server.logger.log("error", err, "auth.basic")
+					this.server.logger.log("error", err)
+
 					res.set("WWW-Authenticate", this.authHeader())
 					res.status(401).end("Unauthorized")
 				})

@@ -1,6 +1,6 @@
 {
 	"name": "@filen/webdav",
-	"version": "0.2.43",
+	"version": "0.2.44",
 	"description": "Filen WebDAV",
 	"main": "dist/index.js",
 	"types": "dist/index.d.ts",
