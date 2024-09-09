@@ -42,7 +42,8 @@ export type Resource = FSStats & {
 }
 
 export type User = {
-	sdk: FilenSDK
+	sdkConfig?: FilenSDKConfig
+	sdk?: FilenSDK
 	username: string
 	password: string
 }
@@ -92,18 +93,13 @@ export class WebDAVServer {
 	 * 		port?: number
 	 * 		authMode?: "basic" | "digest"
 	 * 		https?: boolean
-	 * 		user?: {
-	 * 			sdkConfig?: FilenSDKConfig
-	 * 			sdk?: FilenSDK
-	 * 			username: string
-	 * 			password: string
-	 * 		}
+	 * 		user?: User
 	 * 		rateLimit?: RateLimit
 	 * 		disableLogging?: boolean
 	 * 	}} param0
 	 * @param {string} [param0.hostname="127.0.0.1"]
 	 * @param {number} [param0.port=1900]
-	 * @param {{ sdkConfig?: FilenSDKConfig; sdk?: FilenSDK; username: string; password: string; }} param0.user
+	 * @param {User} param0.user
 	 * @param {("basic" | "digest")} [param0.authMode="basic"]
 	 * @param {boolean} [param0.https=false]
 	 * @param {RateLimit} [param0.rateLimit={
@@ -130,12 +126,7 @@ export class WebDAVServer {
 		port?: number
 		authMode?: "basic" | "digest"
 		https?: boolean
-		user?: {
-			sdkConfig?: FilenSDKConfig
-			sdk?: FilenSDK
-			username: string
-			password: string
-		}
+		user?: User
 		rateLimit?: RateLimit
 		disableLogging?: boolean
 	}) {
@@ -213,7 +204,7 @@ export class WebDAVServer {
 			return null
 		}
 
-		if (this.users[username]) {
+		if (this.users[username] && this.users[username]!.sdk) {
 			return this.users[username]!.sdk
 		}
 
@@ -682,6 +673,10 @@ export class WebDAVServerCluster {
 					}
 
 					cluster.on("exit", async worker => {
+						if (workersReady < this.threads) {
+							return
+						}
+
 						workersReady--
 
 						delete this.workers[worker.id]
