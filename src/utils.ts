@@ -89,7 +89,7 @@ export function platformConfigPath(): string {
 		throw new Error("Could not find homedir path.")
 	}
 
-	configPath = pathModule.join(configPath, "filen-webdav")
+	configPath = pathModule.join(configPath, "@filen", "webdav")
 
 	if (!fs.existsSync(configPath)) {
 		fs.mkdirSync(configPath, {
