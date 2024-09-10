@@ -205,7 +205,7 @@ export class WebDAVServer {
 		}
 
 		if (this.users[username] && this.users[username]!.sdk) {
-			return this.users[username]!.sdk
+			return this.users[username]!.sdk!
 		}
 
 		return null
