@@ -55,7 +55,7 @@
 		"@filen/sdk": "^0.1.165",
 		"body-parser": "^1.20.2",
 		"dayjs": "^1.11.11",
-		"express": "^4.19.2",
+		"express": "^5.0.0",
 		"express-rate-limit": "^7.4.0",
 		"fs-extra": "^11.2.0",
 		"mime-types": "^2.1.35",
