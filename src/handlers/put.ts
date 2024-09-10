@@ -79,9 +79,6 @@ export class Put {
 					isFile() {
 						return true
 					},
-					isSymbolicLink() {
-						return false
-					},
 					mtimeMs: Date.now(),
 					region: "",
 					bucket: "",
