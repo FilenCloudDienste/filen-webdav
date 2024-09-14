@@ -1,8 +1,9 @@
 import { type Request, type Response } from "express"
 import type Server from ".."
 import Responses from "../responses"
-import { removeLastSlash } from "../utils"
+import { removeLastSlash, pathToTempDiskFileId } from "../utils"
 import pathModule from "path"
+import fs from "fs-extra"
 
 /**
  * Move
@@ -103,11 +104,22 @@ export class Move {
 			}
 
 			if (resource.isVirtual) {
-				if (overwrite && destinationResource && !destinationResource.isVirtual) {
-					await sdk.fs().unlink({
-						path: destinationResource.path,
-						permanent: true
-					})
+				if (overwrite && destinationResource) {
+					if (destinationResource.tempDiskId) {
+						await fs.rm(pathModule.join(this.server.tempDiskPath, destinationResource.tempDiskId), {
+							force: true,
+							maxRetries: 60 * 10,
+							recursive: true,
+							retryDelay: 100
+						})
+					}
+
+					if (!destinationResource.isVirtual) {
+						await sdk.fs().unlink({
+							path: destinationResource.path,
+							permanent: true
+						})
+					}
 
 					this.server.getVirtualFilesForUser(req.username)[destination] = {
 						...resource,
@@ -131,6 +143,66 @@ export class Move {
 				}
 
 				delete this.server.getVirtualFilesForUser(req.username)[resource.path]
+
+				await Responses.created(res)
+
+				return
+			}
+
+			if (resource.tempDiskId) {
+				const destinationTempDiskFileId = pathToTempDiskFileId(destination, req.username)
+
+				if (overwrite && destinationResource) {
+					if (destinationResource.tempDiskId) {
+						await fs.rm(pathModule.join(this.server.tempDiskPath, destinationResource.tempDiskId), {
+							force: true,
+							maxRetries: 60 * 10,
+							recursive: true,
+							retryDelay: 100
+						})
+					}
+
+					if (!destinationResource.isVirtual) {
+						await sdk.fs().unlink({
+							path: destinationResource.path,
+							permanent: true
+						})
+					}
+
+					await fs.rename(
+						pathModule.join(this.server.tempDiskPath, resource.tempDiskId),
+						pathModule.join(this.server.tempDiskPath, destinationTempDiskFileId)
+					)
+
+					this.server.getTempDiskFilesForUser(req.username)[destination] = {
+						...resource,
+						url: destination,
+						path: destination,
+						name: pathModule.posix.basename(destination),
+						tempDiskId: destinationTempDiskFileId
+					}
+
+					delete this.server.getTempDiskFilesForUser(req.username)[resource.path]
+
+					await Responses.noContent(res)
+
+					return
+				}
+
+				await fs.rename(
+					pathModule.join(this.server.tempDiskPath, resource.tempDiskId),
+					pathModule.join(this.server.tempDiskPath, destinationTempDiskFileId)
+				)
+
+				this.server.getTempDiskFilesForUser(req.username)[destination] = {
+					...resource,
+					url: destination,
+					path: destination,
+					name: pathModule.posix.basename(destination),
+					tempDiskId: destinationTempDiskFileId
+				}
+
+				delete this.server.getTempDiskFilesForUser(req.username)[resource.path]
 
 				await Responses.created(res)
 

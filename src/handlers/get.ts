@@ -1,10 +1,15 @@
 import { type Request, type Response } from "express"
 import type Server from ".."
 import mimeTypes from "mime-types"
-import { Readable } from "stream"
+import { Readable, pipeline } from "stream"
 import { type ReadableStream as ReadableStreamWebType } from "stream/web"
 import Responses from "../responses"
 import { parseByteRange } from "../utils"
+import fs from "fs-extra"
+import pathModule from "path"
+import { promisify } from "util"
+
+const pipelineAsync = promisify(pipeline)
 
 /**
  * Get
@@ -91,57 +96,69 @@ export class Get {
 			res.set("Content-Type", mimeType)
 			res.set("Accept-Ranges", "bytes")
 
-			const stream = sdk.cloud().downloadFileToReadableStream({
-				uuid: resource.uuid,
-				bucket: resource.bucket,
-				region: resource.region,
-				version: resource.version,
-				key: resource.key,
-				size: resource.size,
-				chunks: resource.chunks,
-				start,
-				end
-			})
+			if (resource.tempDiskId) {
+				await pipelineAsync(
+					fs.createReadStream(pathModule.join(this.server.tempDiskPath, resource.tempDiskId), {
+						autoClose: true,
+						flags: "r",
+						start,
+						end
+					}),
+					res
+				)
+			} else {
+				const stream = sdk.cloud().downloadFileToReadableStream({
+					uuid: resource.uuid,
+					bucket: resource.bucket,
+					region: resource.region,
+					version: resource.version,
+					key: resource.key,
+					size: resource.size,
+					chunks: resource.chunks,
+					start,
+					end
+				})
 
-			const nodeStream = Readable.fromWeb(stream as unknown as ReadableStreamWebType<Buffer>)
+				const nodeStream = Readable.fromWeb(stream as unknown as ReadableStreamWebType<Buffer>)
 
-			const cleanup = () => {
-				try {
-					stream.cancel().catch(() => {})
+				const cleanup = () => {
+					try {
+						stream.cancel().catch(() => {})
 
-					if (!nodeStream.closed && !nodeStream.destroyed) {
-						nodeStream.destroy()
+						if (!nodeStream.closed && !nodeStream.destroyed) {
+							nodeStream.destroy()
+						}
+					} catch {
+						// Noop
 					}
-				} catch {
-					// Noop
 				}
+
+				res.once("close", () => {
+					cleanup()
+				})
+
+				res.once("error", () => {
+					cleanup()
+				})
+
+				res.once("finish", () => {
+					cleanup()
+				})
+
+				req.once("close", () => {
+					cleanup()
+				})
+
+				req.once("error", () => {
+					cleanup()
+				})
+
+				nodeStream.once("error", () => {
+					cleanup()
+				})
+
+				nodeStream.pipe(res)
 			}
-
-			res.once("close", () => {
-				cleanup()
-			})
-
-			res.once("error", () => {
-				cleanup()
-			})
-
-			res.once("finish", () => {
-				cleanup()
-			})
-
-			req.once("close", () => {
-				cleanup()
-			})
-
-			req.once("error", () => {
-				cleanup()
-			})
-
-			nodeStream.once("error", () => {
-				cleanup()
-			})
-
-			nodeStream.pipe(res)
 		} catch (e) {
 			this.server.logger.log("error", e, "get")
 			this.server.logger.log("error", e)

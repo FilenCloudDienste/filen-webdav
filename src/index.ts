@@ -13,7 +13,7 @@ import Copy from "./handlers/copy"
 import Proppatch from "./handlers/proppatch"
 import Move from "./handlers/move"
 import Auth, { parseDigestAuthHeader } from "./middlewares/auth"
-import { removeLastSlash } from "./utils"
+import { removeLastSlash, tempDiskPath } from "./utils"
 import Lock from "./handlers/lock"
 import Unlock from "./handlers/unlock"
 import { Semaphore, type ISemaphore } from "./semaphore"
@@ -29,6 +29,10 @@ import { rateLimit } from "express-rate-limit"
 import Logger from "./logger"
 import cluster from "cluster"
 import os from "os"
+// @ts-expect-error Picomatch exports wrong types
+import picomatch from "picomatch/posix"
+import { type Matcher } from "picomatch"
+import fs from "fs-extra"
 
 export type ServerConfig = {
 	hostname: string
@@ -39,6 +43,7 @@ export type Resource = FSStats & {
 	url: string
 	path: string
 	isVirtual: boolean
+	tempDiskId?: string
 }
 
 export type User = {
@@ -68,6 +73,7 @@ export class WebDAVServer {
 	public readonly users: Record<string, User> = {}
 	public readonly serverConfig: ServerConfig
 	public readonly virtualFiles: Record<string, Record<string, Resource>> = {}
+	public readonly tempDiskFiles: Record<string, Record<string, Resource>> = {}
 	public readonly proxyMode: boolean
 	public readonly defaultUsername: string = ""
 	public readonly defaultPassword: string = ""
@@ -80,8 +86,10 @@ export class WebDAVServer {
 		| http.Server<typeof IncomingMessage, typeof ServerResponse>
 		| null = null
 	public connections: Record<string, Socket | Duplex> = {}
-	public rateLimit: RateLimit
-	public logger: Logger
+	public readonly rateLimit: RateLimit
+	public readonly logger: Logger
+	public readonly tempDiskPath: string
+	public readonly putMatcher: Matcher | null
 
 	/**
 	 * Creates an instance of WebDAVServer.
@@ -96,6 +104,7 @@ export class WebDAVServer {
 	 * 		user?: User
 	 * 		rateLimit?: RateLimit
 	 * 		disableLogging?: boolean
+	 * 		tempFilesToStoreOnDisk?: string[]
 	 * 	}} param0
 	 * @param {string} [param0.hostname="127.0.0.1"]
 	 * @param {number} [param0.port=1900]
@@ -108,6 +117,7 @@ export class WebDAVServer {
 	 * 			key: "username"
 	 * 		}]
 	 * @param {boolean} [param0.disableLogging=false]
+	 * @param {{}} [param0.tempFilesToStoreOnDisk=[]] Glob patterns of files that should not be uploaded to the cloud. Files matching the pattern will be served locally.
 	 */
 	public constructor({
 		hostname = "127.0.0.1",
@@ -120,7 +130,8 @@ export class WebDAVServer {
 			limit: 1000,
 			key: "username"
 		},
-		disableLogging = false
+		disableLogging = false,
+		tempFilesToStoreOnDisk = []
 	}: {
 		hostname?: string
 		port?: number
@@ -129,6 +140,7 @@ export class WebDAVServer {
 		user?: User
 		rateLimit?: RateLimit
 		disableLogging?: boolean
+		tempFilesToStoreOnDisk?: string[]
 	}) {
 		this.enableHTTPS = https
 		this.authMode = authMode
@@ -140,6 +152,8 @@ export class WebDAVServer {
 		this.proxyMode = typeof user === "undefined"
 		this.server = express()
 		this.logger = new Logger(disableLogging, false)
+		this.tempDiskPath = tempDiskPath()
+		this.putMatcher = tempFilesToStoreOnDisk.length > 0 ? picomatch(tempFilesToStoreOnDisk) : null
 
 		if (this.proxyMode && this.authMode === "digest") {
 			throw new Error("Digest authentication is not supported in proxy mode.")
@@ -190,6 +204,27 @@ export class WebDAVServer {
 		this.virtualFiles[username] = {}
 
 		return this.virtualFiles[username]!
+	}
+
+	/**
+	 * Return all temp disk file handles for the passed username.
+	 *
+	 * @public
+	 * @param {?string} [username]
+	 * @returns {Record<string, Resource>}
+	 */
+	public getTempDiskFilesForUser(username?: string): Record<string, Resource> {
+		if (!username) {
+			return {}
+		}
+
+		if (this.tempDiskFiles[username]) {
+			return this.tempDiskFiles[username]!
+		}
+
+		this.tempDiskFiles[username] = {}
+
+		return this.tempDiskFiles[username]!
 	}
 
 	/**
@@ -274,6 +309,10 @@ export class WebDAVServer {
 			return this.getVirtualFilesForUser(req.username)[path]!
 		}
 
+		if (this.getTempDiskFilesForUser(req.username)[path]) {
+			return this.getTempDiskFilesForUser(req.username)[path]!
+		}
+
 		const sdk = this.getSDKForUser(req.username)
 
 		if (!sdk) {
@@ -306,6 +345,10 @@ export class WebDAVServer {
 	public async pathToResource(req: Request, path: string): Promise<Resource | null> {
 		if (this.getVirtualFilesForUser(req.username)[path]) {
 			return this.getVirtualFilesForUser(req.username)[path]!
+		}
+
+		if (this.getTempDiskFilesForUser(req.username)[path]) {
+			return this.getTempDiskFilesForUser(req.username)[path]!
 		}
 
 		const sdk = this.getSDKForUser(req.username)
@@ -435,6 +478,8 @@ export class WebDAVServer {
 
 		this.server.use(Errors)
 
+		await fs.emptyDir(this.tempDiskPath)
+
 		await new Promise<void>((resolve, reject) => {
 			if (this.enableHTTPS) {
 				Certs.get()
@@ -551,6 +596,7 @@ export class WebDAVServerCluster {
 		}
 	> = {}
 	private stopSpawning: boolean = false
+	private tempFilesToStoreOnDisk: string[]
 
 	/**
 	 * Creates an instance of WebDAVServerCluster.
@@ -571,6 +617,7 @@ export class WebDAVServerCluster {
 	 * 		rateLimit?: RateLimit
 	 * 		disableLogging?: boolean
 	 * 		threads?: number
+	 * 		tempFilesToStoreOnDisk?: string[]
 	 * 	}} param0
 	 * @param {string} [param0.hostname="127.0.0.1"]
 	 * @param {number} [param0.port=1900]
@@ -583,6 +630,7 @@ export class WebDAVServerCluster {
 	 * 			key: "username"
 	 * 		}]
 	 * @param {number} param0.threads
+	 * @param {{}} [param0.tempFilesToStoreOnDisk=[]] Glob patterns of files that should not be uploaded to the cloud. Files matching the pattern will be served locally.
 	 */
 	public constructor({
 		hostname = "127.0.0.1",
@@ -595,7 +643,8 @@ export class WebDAVServerCluster {
 			limit: 1000,
 			key: "username"
 		},
-		threads
+		threads,
+		tempFilesToStoreOnDisk = []
 	}: {
 		hostname?: string
 		port?: number
@@ -610,6 +659,7 @@ export class WebDAVServerCluster {
 		rateLimit?: RateLimit
 		disableLogging?: boolean
 		threads?: number
+		tempFilesToStoreOnDisk?: string[]
 	}) {
 		this.enableHTTPS = https
 		this.authMode = authMode
@@ -621,6 +671,7 @@ export class WebDAVServerCluster {
 		this.proxyMode = typeof user === "undefined"
 		this.threads = typeof threads === "number" ? threads : os.cpus().length
 		this.user = user
+		this.tempFilesToStoreOnDisk = tempFilesToStoreOnDisk
 
 		if (this.proxyMode && this.authMode === "digest") {
 			throw new Error("Digest authentication is not supported in proxy mode.")
@@ -720,7 +771,8 @@ export class WebDAVServerCluster {
 			disableLogging: true,
 			user: this.user,
 			rateLimit: this.rateLimit,
-			https: this.enableHTTPS
+			https: this.enableHTTPS,
+			tempFilesToStoreOnDisk: this.tempFilesToStoreOnDisk
 		})
 
 		await server.start()

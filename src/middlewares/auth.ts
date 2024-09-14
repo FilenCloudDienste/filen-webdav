@@ -154,6 +154,7 @@ export class Auth {
 					delete this.server.users[username]
 					delete this.authedFilenUsers[username]
 					delete this.server.virtualFiles[username]
+					delete this.server.tempDiskFiles[username]
 				}
 			})
 

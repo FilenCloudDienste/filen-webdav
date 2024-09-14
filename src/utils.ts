@@ -1,6 +1,7 @@
 import pathModule from "path"
 import fs from "fs-extra"
 import os from "os"
+import { xxHash32 } from "js-xxhash"
 
 /**
  * Chunk large Promise.all executions.
@@ -98,4 +99,38 @@ export function platformConfigPath(): string {
 	}
 
 	return configPath
+}
+
+export function tempDiskPath(): string {
+	const path = pathModule.join(platformConfigPath(), "tempDiskFiles")
+
+	if (!fs.existsSync(path)) {
+		fs.mkdirSync(path, {
+			recursive: true
+		})
+	}
+
+	return path
+}
+
+const reservedWindowsNames = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i
+// eslint-disable-next-line no-control-regex
+const invalidChars = /[<>:"/\\|?*\x00-\x1F]/g
+
+export function sanitizeFileName(fileName: string): string {
+	const sanitized = fileName.replace(invalidChars, "").replace(/\.+$/, "").replace(/\s+/g, "_").slice(0, 255)
+
+	if (reservedWindowsNames.test(sanitized)) {
+		return "_" + sanitized
+	}
+
+	return sanitized
+}
+
+export function fastStringHash(input: string): string {
+	return input.substring(0, 8) + xxHash32(input, 0).toString(16) + input.substring(input.length - 8, input.length)
+}
+
+export function pathToTempDiskFileId(path: string, username?: string): string {
+	return sanitizeFileName(fastStringHash(username ? username + "_" + path : path))
 }

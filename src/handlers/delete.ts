@@ -1,6 +1,8 @@
 import { type Request, type Response } from "express"
 import type Server from ".."
 import Responses from "../responses"
+import fs from "fs-extra"
+import pathModule from "path"
 
 /**
  * Delete
@@ -42,6 +44,21 @@ export class Delete {
 
 			if (resource.isVirtual) {
 				delete this.server.getVirtualFilesForUser(req.username)[resource.path]
+
+				await Responses.ok(res)
+
+				return
+			}
+
+			if (resource.tempDiskId) {
+				await fs.rm(pathModule.join(this.server.tempDiskPath, resource.tempDiskId), {
+					force: true,
+					maxRetries: 60 * 10,
+					recursive: true,
+					retryDelay: 100
+				})
+
+				delete this.server.getTempDiskFilesForUser(req.username)[resource.path]
 
 				await Responses.ok(res)
 

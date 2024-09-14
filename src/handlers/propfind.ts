@@ -83,6 +83,14 @@ export class Propfind {
 					}
 				}
 
+				for (const path in this.server.getTempDiskFilesForUser(req.username)) {
+					const parentPath = pathModule.dirname(path)
+
+					if (parentPath === resource.path || parentPath === resource.url) {
+						contentIncludingStats.push(this.server.getTempDiskFilesForUser(req.username)[path]!)
+					}
+				}
+
 				await Responses.propfind(
 					res,
 					[

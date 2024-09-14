@@ -3,9 +3,40 @@ import type Server from ".."
 import pathModule from "path"
 import { v4 as uuidv4 } from "uuid"
 import mimeTypes from "mime-types"
-import { removeLastSlash } from "../utils"
+import { removeLastSlash, pathToTempDiskFileId } from "../utils"
 import Responses from "../responses"
-import { PassThrough } from "stream"
+import { PassThrough, pipeline, Transform } from "stream"
+import { promisify } from "util"
+import fs from "fs-extra"
+import { UPLOAD_CHUNK_SIZE } from "@filen/sdk"
+
+const pipelineAsync = promisify(pipeline)
+
+export class SizeCounter extends Transform {
+	private totalBytes: number
+
+	public constructor() {
+		super()
+
+		this.totalBytes = 0
+	}
+
+	public size(): number {
+		return this.totalBytes
+	}
+
+	public _transform(chunk: Buffer, _: BufferEncoding, callback: () => void): void {
+		this.totalBytes += chunk.length
+
+		this.push(chunk)
+
+		callback()
+	}
+
+	public _flush(callback: () => void): void {
+		callback()
+	}
+}
 
 /**
  * Put
@@ -95,6 +126,8 @@ export class Put {
 
 				await Responses.created(res)
 
+				delete this.server.getTempDiskFilesForUser(req.username)[path]
+
 				return
 			}
 
@@ -115,11 +148,66 @@ export class Put {
 
 			stream.on("error", () => {
 				delete this.server.getVirtualFilesForUser(req.username)[path]
+				delete this.server.getTempDiskFilesForUser(req.username)[path]
 
 				didError = true
 
 				Responses.internalError(res).catch(() => {})
 			})
+
+			if (this.server.putMatcher && (this.server.putMatcher(path) || this.server.putMatcher(name))) {
+				const destinationTempDiskFileId = pathToTempDiskFileId(path, req.username)
+
+				await fs.rm(pathModule.join(this.server.tempDiskPath, destinationTempDiskFileId), {
+					force: true,
+					maxRetries: 60 * 10,
+					recursive: true,
+					retryDelay: 100
+				})
+
+				const sizeCounter = new SizeCounter()
+
+				await pipelineAsync(
+					req.pipe(stream),
+					sizeCounter,
+					fs.createWriteStream(pathModule.join(this.server.tempDiskPath, destinationTempDiskFileId), {
+						flags: "w",
+						autoClose: true
+					})
+				)
+
+				this.server.getTempDiskFilesForUser(req.username)[path] = {
+					type: "file",
+					uuid: uuidv4(),
+					path: path,
+					url: path,
+					isDirectory() {
+						return false
+					},
+					isFile() {
+						return true
+					},
+					mtimeMs: Date.now(),
+					region: "",
+					bucket: "",
+					birthtimeMs: Date.now(),
+					key: "",
+					lastModified: Date.now(),
+					name,
+					mime: mimeTypes.lookup(name) || "application/octet-stream",
+					version: 2,
+					chunks: Math.ceil(sizeCounter.size() / UPLOAD_CHUNK_SIZE),
+					size: sizeCounter.size(),
+					isVirtual: false,
+					tempDiskId: destinationTempDiskFileId
+				}
+
+				delete this.server.getVirtualFilesForUser(req.username)[path]
+
+				await Responses.created(res)
+
+				return
+			}
 
 			const item = await sdk.cloud().uploadLocalFileStream({
 				source: req.pipe(stream),
@@ -127,6 +215,7 @@ export class Put {
 				name,
 				onError: () => {
 					delete this.server.getVirtualFilesForUser(req.username)[path]
+					delete this.server.getTempDiskFilesForUser(req.username)[path]
 
 					didError = true
 
@@ -134,11 +223,12 @@ export class Put {
 				}
 			})
 
+			delete this.server.getVirtualFilesForUser(req.username)[path]
+			delete this.server.getTempDiskFilesForUser(req.username)[path]
+
 			if (didError) {
 				return
 			}
-
-			delete this.server.getVirtualFilesForUser(req.username)[path]
 
 			if (item.type !== "file") {
 				await Responses.badRequest(res)
@@ -170,6 +260,8 @@ export class Put {
 
 			await Responses.created(res)
 		} catch (e) {
+			console.error(e)
+
 			this.server.logger.log("error", e, "put")
 			this.server.logger.log("error", e)
 
