@@ -1,7 +1,6 @@
 import { type Response } from "express"
 import { Builder } from "xml2js"
 import { type Resource } from "."
-import dayjs from "dayjs"
 import mimeTypes from "mime-types"
 
 /**
@@ -33,11 +32,11 @@ export class Responses {
 					"D:href": `${encodeURI(resource.url)}`,
 					["D:propstat"]: {
 						"D:prop": {
-							"D:getlastmodified": dayjs(resource.mtimeMs).format("ddd, DD MMM YYYY HH:mm:ss [GMT]"),
+							"D:getlastmodified": new Date(resource.mtimeMs).toUTCString(),
 							"D:displayname": encodeURIComponent(resource.name),
 							"D:getcontentlength": resource.type === "directory" ? 0 : resource.size,
 							"D:getetag": resource.uuid,
-							"D:creationdate": dayjs(resource.birthtimeMs).format("ddd, DD MMM YYYY HH:mm:ss [GMT]"),
+							"D:creationdate": new Date(resource.birthtimeMs).toISOString(),
 							"D:quota-available-bytes": quota.available.toString(),
 							"D:quota-used-bytes": quota.used.toString(),
 							"D:getcontenttype":
