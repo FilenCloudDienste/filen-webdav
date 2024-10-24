@@ -1,6 +1,5 @@
 import { type Request, type Response } from "express"
 import type Server from ".."
-import pathModule from "path"
 import Responses from "../responses"
 
 /**
@@ -34,16 +33,6 @@ export class Mkcol {
 	public async handle(req: Request, res: Response): Promise<void> {
 		try {
 			const path = decodeURI(req.url.endsWith("/") ? req.url.slice(0, req.url.length - 1) : req.url)
-			const parentPath = pathModule.posix.dirname(path)
-			const parentResource = await this.server.pathToResource(req, parentPath)
-
-			// The SDK handles checking if a directory with the same name and parent already exists
-			if (!parentResource || parentResource.type !== "directory") {
-				await Responses.preconditionFailed(res)
-
-				return
-			}
-
 			const sdk = this.server.getSDKForUser(req.username)
 
 			if (!sdk) {
@@ -52,7 +41,16 @@ export class Mkcol {
 				return
 			}
 
+			// The SDK handles checking if a directory with the same name and parent already exists
 			await sdk.fs().mkdir({ path })
+
+			const resource = await this.server.urlToResource(req)
+
+			if (!resource || resource.type !== "directory") {
+				await Responses.notFound(res, req.url)
+
+				return
+			}
 
 			await Responses.created(res)
 		} catch (e) {
