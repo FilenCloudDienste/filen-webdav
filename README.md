@@ -24,10 +24,10 @@ npm install @filen/webdav@latest
 ```typescript
 // Standalone mode, single user
 
-import FilenSDK from "@filen/sdk"
+import { FilenSDK } from "@filen/sdk"
 import path from "path"
 import os from "os"
-import WebDAVServer from "@filen/webdav"
+import { WebDAVServer } from "@filen/webdav"
 
 // Initialize a SDK instance (optional)
 const filen = new FilenSDK({
@@ -80,7 +80,7 @@ Password: "password=yoursecretpassword&twoFactorAuthentication=<RECOVERY_CODE_OR
 ```typescript
 // Proxy mode, multi user
 
-import WebDAVServer from "@filen/webdav"
+import { WebDAVServer } from "@filen/webdav"
 
 const hostname = "127.0.0.1"
 const port = 1900
@@ -103,7 +103,7 @@ console.log(
 4. Initialize the server (cluster mode)
 
 ```typescript
-import FilenSDK from "@filen/sdk"
+import { FilenSDK } from "@filen/sdk"
 import path from "path"
 import os from "os"
 import { WebDAVServerCluster } from "@filen/webdav"
