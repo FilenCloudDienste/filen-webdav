@@ -68,7 +68,7 @@ export class Put {
 	 */
 	public async handle(req: Request, res: Response): Promise<void> {
 		try {
-			const path = removeLastSlash(decodeURI(req.url))
+			const path = removeLastSlash(decodeURIComponent(req.url))
 			const parentPath = pathModule.posix.dirname(path)
 			const name = pathModule.posix.basename(path)
 			const thisResource = await this.server.pathToResource(req, path)

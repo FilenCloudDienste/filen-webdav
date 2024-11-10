@@ -274,7 +274,7 @@ export class WebDAVServer {
 	 * @returns {ISemaphore}
 	 */
 	public getRWMutexForUser(path: string, username?: string): ISemaphore {
-		path = removeLastSlash(decodeURI(path))
+		path = removeLastSlash(decodeURIComponent(path))
 
 		if (!username) {
 			return new Semaphore(1)
@@ -302,7 +302,7 @@ export class WebDAVServer {
 	 * @returns {Promise<Resource | null>}
 	 */
 	public async urlToResource(req: Request): Promise<Resource | null> {
-		const url = decodeURI(req.url)
+		const url = decodeURIComponent(req.url)
 		const path = url === "/" ? url : removeLastSlash(url)
 
 		if (this.getVirtualFilesForUser(req.username)[path]) {

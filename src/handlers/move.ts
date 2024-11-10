@@ -64,7 +64,7 @@ export class Move {
 				return
 			}
 
-			const destination = decodeURI(url.pathname)
+			const destination = decodeURIComponent(url.pathname)
 
 			if (destination.startsWith("..") || destination.startsWith("./") || destination.startsWith("../")) {
 				await Responses.forbidden(res)

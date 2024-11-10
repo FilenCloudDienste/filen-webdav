@@ -29,7 +29,10 @@ export class Responses {
 					"xmlns:D": "DAV:"
 				},
 				"D:response": resources.map(resource => ({
-					"D:href": `${encodeURI(resource.url)}`,
+					"D:href": `${resource.url
+						.split("/")
+						.map(part => encodeURIComponent(part))
+						.join("/")}`,
 					["D:propstat"]: {
 						"D:prop": {
 							"D:getlastmodified": new Date(resource.mtimeMs).toUTCString(),
@@ -80,7 +83,10 @@ export class Responses {
 					"xmlns:D": "DAV:"
 				},
 				"D:response": {
-					"D:href": `${encodeURI(url)}`,
+					"D:href": `${url
+						.split("/")
+						.map(part => encodeURIComponent(part))
+						.join("/")}`,
 					["D:propstat"]: {
 						"D:prop": {},
 						"D:status": "HTTP/1.1 207 Multi-Status"
@@ -111,7 +117,10 @@ export class Responses {
 					"xmlns:D": "DAV:"
 				},
 				"D:response": {
-					"D:href": `${encodeURI(url)}`,
+					"D:href": `${url
+						.split("/")
+						.map(part => encodeURIComponent(part))
+						.join("/")}`,
 					["D:propstat"]: {
 						"D:prop": {},
 						"D:status": "HTTP/1.1 404 NOT FOUND"
