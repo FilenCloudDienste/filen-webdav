@@ -107,14 +107,14 @@ export class Auth {
 					throw new Error("Credentials wrongly formatted.")
 				}
 
+				parsedPassword = passwordEx[0]!.slice("password=".length)
+
 				if (passwordEx.length >= 2) {
 					const twoFactor = passwordEx[1]
 
 					if (twoFactor && twoFactor.length >= 6) {
 						parsedTwoFactorCode = twoFactor
 					}
-				} else {
-					parsedPassword = passwordEx[0]!.slice(9)
 				}
 			}
 

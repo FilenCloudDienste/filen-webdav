@@ -260,8 +260,6 @@ export class Put {
 
 			await Responses.created(res)
 		} catch (e) {
-			console.error(e)
-
 			this.server.logger.log("error", e, "put")
 			this.server.logger.log("error", e)
 
