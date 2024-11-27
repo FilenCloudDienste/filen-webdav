@@ -137,7 +137,7 @@ export class Proppatch {
 			}
 
 			if (!lastModified && !creation) {
-				await Responses.proppatch(res, req.url)
+				await Responses.proppatch(res, req.url, Object.keys(properties))
 
 				return
 			}
@@ -207,7 +207,7 @@ export class Proppatch {
 				})
 			}
 
-			await Responses.proppatch(res, req.url)
+			await Responses.proppatch(res, req.url, Object.keys(properties))
 		} catch (e) {
 			this.server.logger.log("error", e, "proppatch")
 			this.server.logger.log("error", e)

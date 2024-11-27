@@ -79,7 +79,7 @@ export class Responses {
 		})
 	}
 
-	public static async proppatch(res: Response, url: string): Promise<void> {
+	public static async proppatch(res: Response, url: string, propsSet?: string[]): Promise<void> {
 		if (res.headersSent) {
 			return
 		}
@@ -95,7 +95,15 @@ export class Responses {
 						.map(part => encodeURIComponent(part))
 						.join("/")}`,
 					["D:propstat"]: {
-						"D:prop": {},
+						"D:prop": propsSet
+							? propsSet.reduce(
+									(prev, curr) => ({
+										...prev,
+										[curr.startsWith("d:") ? curr.split("d:").join("D:") : `D:${curr}`]: {}
+									}),
+									{}
+							  )
+							: {},
 						"D:status": "HTTP/1.1 207 Multi-Status"
 					}
 				}
