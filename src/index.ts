@@ -438,7 +438,7 @@ export class WebDAVServer {
 		this.server.use(new Auth(this).handle)
 
 		this.server.use((_, res, next) => {
-			res.set("Allow", "OPTIONS, GET, HEAD, PUT, DELETE, PROPFIND, PROPPATCH, MKCOL, COPY, MOVE")
+			res.set("Allow", "OPTIONS, GET, HEAD, PUT, DELETE, PROPFIND, PROPPATCH, MKCOL, COPY, MOVE, LOCK")
 			res.set("DAV", "1, 2")
 			res.set("Access-Control-Allow-Origin", "*")
 			res.set("Access-Control-Allow-Credentials", "true")
@@ -459,7 +459,9 @@ export class WebDAVServer {
 				return
 			}
 
-			bodyParser.text({ type: ["application/xml", "text/xml"] })(req, res, next)
+			bodyParser.text({
+				type: ["application/xml", "text/xml"]
+			})(req, res, next)
 		})
 
 		this.server.head("*", new Head(this).handle)

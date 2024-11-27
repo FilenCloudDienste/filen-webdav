@@ -137,3 +137,13 @@ export function fastStringHash(input: string): string {
 export function pathToTempDiskFileId(path: string, username?: string): string {
 	return sanitizeFileName(fastStringHash(username ? username + "_" + path : path))
 }
+
+export function isValidDate(date: string): boolean {
+	try {
+		const d = new Date(date) as unknown as string
+
+		return d !== "Invalid Date"
+	} catch {
+		return false
+	}
+}

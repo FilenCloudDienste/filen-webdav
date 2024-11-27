@@ -28,36 +28,43 @@ export class Responses {
 				$: {
 					"xmlns:D": "DAV:"
 				},
-				"D:response": resources.map(resource => ({
-					"D:href": `${resource.url
-						.split("/")
-						.map(part => encodeURIComponent(part))
-						.join("/")}`,
-					["D:propstat"]: {
-						"D:prop": {
-							"D:getlastmodified": new Date(resource.mtimeMs).toUTCString(),
-							"D:displayname": encodeURIComponent(resource.name),
-							"D:getcontentlength": resource.type === "directory" ? 0 : resource.size,
-							"D:getetag": resource.uuid,
-							"D:creationdate": new Date(resource.birthtimeMs).toISOString(),
-							"D:quota-available-bytes": quota.available.toString(),
-							"D:quota-used-bytes": quota.used.toString(),
-							"D:getcontenttype":
-								resource.type === "directory"
-									? "httpd/unix-directory"
-									: mimeTypes.lookup(resource.name) || "application/octet-stream",
-							"D:resourcetype":
-								resource.type === "directory"
-									? {
-											"D:collection": ""
-									  }
-									: {
-											"D:file": ""
-									  }
-						},
-						"D:status": "HTTP/1.1 200 OK"
+				"D:response": resources.map(resource => {
+					const lastModified = new Date(resource.mtimeMs).toUTCString()
+					const creationDate = new Date(resource.birthtimeMs).toISOString()
+
+					return {
+						"D:href": `${resource.url
+							.split("/")
+							.map(part => encodeURIComponent(part))
+							.join("/")}`,
+						["D:propstat"]: {
+							"D:prop": {
+								"D:getlastmodified": lastModified,
+								"D:lastmodified": lastModified,
+								"D:displayname": encodeURIComponent(resource.name),
+								"D:getcontentlength": resource.type === "directory" ? 0 : resource.size,
+								"D:getetag": resource.uuid,
+								"D:creationdate": creationDate,
+								"D:getcreationdate": creationDate,
+								"D:quota-available-bytes": quota.available.toString(),
+								"D:quota-used-bytes": quota.used.toString(),
+								"D:getcontenttype":
+									resource.type === "directory"
+										? "httpd/unix-directory"
+										: mimeTypes.lookup(resource.name) || "application/octet-stream",
+								"D:resourcetype":
+									resource.type === "directory"
+										? {
+												"D:collection": ""
+										  }
+										: {
+												"D:file": ""
+										  }
+							},
+							"D:status": "HTTP/1.1 200 OK"
+						}
 					}
-				}))
+				})
 			}
 		})
 
