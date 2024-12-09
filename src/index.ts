@@ -495,6 +495,11 @@ export class WebDAVServer {
 								this.server
 							)
 							.listen(this.serverConfig.port, this.serverConfig.hostname, () => {
+								this.serverInstance!.setTimeout(86400000 * 7)
+								this.serverInstance!.timeout = 86400000 * 7
+								this.serverInstance!.keepAliveTimeout = 86400000 * 7
+								this.serverInstance!.headersTimeout = 86400000 * 7 * 2
+
 								resolve()
 							})
 							.on("connection", socket => {
@@ -512,6 +517,11 @@ export class WebDAVServer {
 				this.serverInstance = http
 					.createServer(this.server)
 					.listen(this.serverConfig.port, this.serverConfig.hostname, () => {
+						this.serverInstance!.setTimeout(86400000 * 7)
+						this.serverInstance!.timeout = 86400000 * 7
+						this.serverInstance!.keepAliveTimeout = 86400000 * 7
+						this.serverInstance!.headersTimeout = 86400000 * 7 * 2
+
 						resolve()
 					})
 					.on("connection", socket => {
