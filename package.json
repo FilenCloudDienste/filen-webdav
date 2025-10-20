@@ -62,7 +62,7 @@
 		"mime-types": "^2.1.35",
 		"node-cache": "^5.1.2",
 		"picomatch": "^4.0.2",
-		"pino": "^9.4.0",
+		"pino": "^10.1.0",
 		"rotating-file-stream": "^3.2.3",
 		"selfsigned": "^2.4.1",
 		"uuid": "^10.0.0",
